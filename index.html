@@ -1435,7 +1435,7 @@ window.FACE_META = {
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.21.1028';
+  var VERSION = '1.9.23.1028';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -14506,6 +14506,63 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   else boot();
 })(window);
 
+</script>
+
+<!-- ===== 网页版云端更新（手机浏览器/网页转 App 也能自动更新） ===== -->
+<script>
+(function () {
+  var UPDATE_URL = 'https://a14720723.github.io/shitu';
+  function verOf(h) { var m = h && h.match(/var VERSION = '([^']+)'/); return m ? m[1] : ''; }
+  function newer(a, b) {
+    if (!a) return false; if (!b) return true;
+    var x = a.split('.'), y = b.split('.'), n = Math.max(x.length, y.length);
+    for (var i = 0; i < n; i++) { var p = parseInt(x[i], 10) || 0, q = parseInt(y[i], 10) || 0; if (p !== q) return p > q; }
+    return false;
+  }
+  function xhr(u, cb) {
+    try { var r = new XMLHttpRequest(); r.open('GET', u, true); r.timeout = 8000;
+      r.onreadystatechange = function () { if (r.readyState === 4) cb(r.status === 200 ? r.responseText : null); };
+      r.onerror = function () { cb(null); }; r.send();
+    } catch (e) { cb(null); }
+  }
+  /* 上一局存档要保住：更新前先备份 */
+  function backup() {
+    var keys = [];
+    try { for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i)); } catch (e) { return null; }
+    var bag = {}; keys.forEach(function (k) { try { bag[k] = localStorage.getItem(k); } catch (e) { } });
+    return bag;
+  }
+  function check() {
+    var local = verOf(document.documentElement.outerHTML);
+    xhr(UPDATE_URL + '/version.json', function (t) {
+      var rv = ''; if (t) { try { rv = JSON.parse(t).version || ''; } catch (e) { rv = ''; } }
+      if (rv) {
+        if (!newer(rv, local)) return;
+        xhr(UPDATE_URL + '/index.html', function (h) {
+          if (!h || h.length < 10000) return;
+          try { localStorage.setItem('shitu_hot_html', h); localStorage.setItem('shitu_hot_ver', rv);
+                setTimeout(function () { location.reload(); }, 400); } catch (e) { }
+        });
+        return;
+      }
+      xhr(UPDATE_URL + '/index.html', function (h) {
+        if (!h || h.length < 10000) return;
+        var v2 = verOf(h);
+        if (!newer(v2, local)) return;
+        try { localStorage.setItem('shitu_hot_html', h); localStorage.setItem('shitu_hot_ver', v2);
+              setTimeout(function () { location.reload(); }, 400); } catch (e) { }
+      });
+    });
+  }
+  /* 若本地已缓存了新版，下次打开就用它（不改写页面，避免存档丢失） */
+  try {
+    var cv = localStorage.getItem('shitu_hot_ver');
+    if (cv && newer(cv, verOf(document.documentElement.outerHTML))) {
+      console.log('[仕途] 检测到新版 ' + cv + '，下次冷启动生效');
+    }
+  } catch (e) { }
+  setTimeout(check, 1500);
+})();
 </script>
 </body>
 </html>
