@@ -783,6 +783,16 @@ select.sel {
   font-size: 13px; line-height: 26px; text-align: center; cursor: pointer; z-index: 5; }
 .mclose:active { background: #e6e1d6; }
 
+/* 云排行榜 */
+.lbrow { display: flex; align-items: center; gap: 9px; }
+.lbno { flex: 0 0 24px; height: 24px; border-radius: 50%; background: #f0ece3;
+  color: var(--ink2); font-size: 12px; font-weight: 700; line-height: 24px; text-align: center; }
+.lbno.top { background: var(--gold); color: #fff; }
+.lbmain { flex: 1; min-width: 0; }
+.lbval { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: var(--red); }
+.li.me { background: #fdf8ef; border-radius: 8px; padding: 6px 8px; margin-left: -8px; }
+.chip.on { background: var(--red); color: #fff; border-color: var(--red); }
+
 </style>
 </head>
 <body>
@@ -1000,6 +1010,210 @@ select.sel {
     toggleMute: toggleMute, isMuted: isMuted, bindAuto: bindAuto, unlock: unlock,
     list: ['tap', 'tick', 'ok', 'back', 'quarter', 'office', 'promote', 'bad', 'warn',
       'money', 'spend', 'marry', 'baby', 'achieve', 'sick', 'ending', 'pop', 'pick']
+  };
+})(window);
+
+/* rank.js —— 云排行榜（官级 / 财富 / 时长，各显示前 20）
+ *
+ *  读：从云端 rank.json 拉取（默认用你在 GitHub Pages 上的仓库）
+ *  写：需要一个能接收 POST 的写入端点。没配就走「导出成绩」，
+ *      把成绩文本发到交流群，由维护者合并进 rank.json。
+ *
+ *  想换成自己的后端，改下面的 LB_READ / LB_POST 两个常量即可。
+ */
+(function (global) {
+  var LB_READ = 'https://a14720723.github.io/shitu/rank.json';
+  var LB_POST = '';   /* 留空＝只支持导出成绩文本 */
+
+  var K_LOCAL = 'shitu_lb_mine';
+  var cache = { list: [], updated: '', err: '', loaded: false };
+
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+  /* 把当前这局整理成一条榜单记录 */
+  function makeRecord(g, EN) {
+    var R = EN.rankOf(g);
+    var pl = EN.placeOf(g);
+    /* 净资产 = 现金 + 房产市值 + 车辆市值 − 未还贷款（周末再算公积金） */
+    var D2 = global.DATA2 || {};
+    var hv = 0, cv = 0;
+    if (g.house > 0 && D2.HOUSE_BUY && D2.HOUSE_BUY[g.house - 1]) hv = D2.HOUSE_BUY[g.house - 1].price || 0;
+    if (g.car > 0 && D2.CAR_BUY && D2.CAR_BUY[g.car - 1]) cv = D2.CAR_BUY[g.car - 1].price || 0;
+    var loan = Math.round(num(g.loan || 0));
+    var asset = Math.max(0, Math.round((num(g.cash) + hv + cv - loan) * 100) / 100);
+    var served = Math.max(0, (g.year || 0) - (g.startYear || (g.year - (g.age - 22))));
+    return {
+      id: (g.rid || (g.rid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6))),
+      name: g.name || '无名',
+      lv: g.lv || 1,
+      rank: R.name,
+      real: R.real,
+      unit: (g.unit || '') + (g.post || ''),
+      place: pl.full,
+      track: (g.track && g.track.name) || '',
+      cash: Math.round((g.cash || 0) * 100) / 100,
+      asset: asset, house: hv, carVal: cv, loan: loan,
+      years: Math.round(served),
+      quarters: (g.yearQuarters || 0),
+      ending: g.ending || '',
+      endingName: (g.endingName || ''),
+      age: g.age || 0,
+      ts: Date.now()
+    };
+  }
+
+  /* 拉取云端榜单 */
+  function fetchList(cb) {
+    if (!LB_READ) { cb(null, '未配置榜单地址'); return; }
+    try {
+      var r = new XMLHttpRequest();
+      r.open('GET', LB_READ + (LB_READ.indexOf('?') >= 0 ? '&' : '?') + '_t=' + Date.now(), true);
+      r.timeout = 8000;
+      r.onreadystatechange = function () {
+        if (r.readyState !== 4) return;
+        if (r.status === 200) {
+          var d = null;
+          try { d = JSON.parse(r.responseText); } catch (e) { d = null; }
+          var list = (d && (d.players || d.list)) || [];
+          cache.list = list.slice();
+          cache.updated = (d && d.updated) || '';
+          cache.err = '';
+          cache.loaded = true;
+          cb(cache.list, '');
+        } else {
+          cache.err = '云端榜单暂时读不到（HTTP ' + r.status + '）';
+          cb(null, cache.err);
+        }
+      };
+      r.onerror = function () { cache.err = '网络不通，读不到云端榜单'; cb(null, cache.err); };
+      r.send();
+    } catch (e) { cb(null, '读取失败'); }
+  }
+
+  /* 把自己的成绩并进本地列表（同一个 id 只留最新、最好的那条） */
+  function mergeMine(rec) {
+    var list = cache.list.slice();
+    var i = -1;
+    for (var k = 0; k < list.length; k++) { if (list[k].id === rec.id) { i = k; break; } }
+    if (i >= 0) {
+      var old = list[i];
+      /* 官级更高、或官级相同但财富更高，就覆盖 */
+      if (rec.lv > num(old.lv) || (rec.lv === num(old.lv) && rec.asset >= num(old.asset))) list[i] = rec;
+      else list[i] = old;
+    } else {
+      list.push(rec);
+    }
+    cache.list = list;
+    try { localStorage.setItem(K_LOCAL, JSON.stringify(rec)); } catch (e) { }
+    return list;
+  }
+
+  /* 提交：有写入端点就 POST，否则返回 false 走导出 */
+  function submit(rec, cb) {
+    if (!LB_POST) { cb(false, '未配置提交地址'); return; }
+    try {
+      var r = new XMLHttpRequest();
+      r.open('POST', LB_POST, true);
+      r.timeout = 8000;
+      r.setRequestHeader('Content-Type', 'application/json');
+      r.onreadystatechange = function () {
+        if (r.readyState === 4) cb(r.status >= 200 && r.status < 300, r.status >= 200 && r.status < 300 ? '已提交' : ('提交失败（HTTP ' + r.status + '）'));
+      };
+      r.onerror = function () { cb(false, '网络不通，提交失败'); };
+      r.send(JSON.stringify(rec));
+    } catch (e) { cb(false, '提交失败'); }
+  }
+
+  /* 导出成一段可复制的文本（发到群里用） */
+  function exportText(rec) {
+    return '【仕途·成绩】' + rec.name + '　' + rec.rank + '（' + rec.real + '）\n' +
+      '单位：' + rec.unit + '\n' +
+      '任职地：' + rec.place + '\n' +
+      '路线：' + rec.track + '　官级：第 ' + rec.lv + ' 级\n' +
+      '净资产：' + rec.asset + ' 万　在职：' + rec.years + ' 年\n' +
+      '结局：' + (rec.endingName || rec.ending || '未完') + '\n' +
+      'ID：' + rec.id;
+  }
+
+  /* 解析一段别人分享的成绩文本 */
+  function importText(txt) {
+    var t = String(txt || '');
+    if (t.indexOf('【仕途·成绩】') < 0) return null;
+    function grab(label, next) {
+      var i = t.indexOf(label);
+      if (i < 0) return '';
+      var seg = t.slice(i + label.length);
+      var lines = seg.split('\n');
+      var v = lines[0].trim();
+      if (next) { var j = v.indexOf(next); if (j > 0) v = v.slice(0, j).trim(); }
+      return v;
+    }
+    var name = t.slice(t.indexOf('【仕途·成绩】') + 7).split('　')[0].trim();
+    var lvLine = grab('官级：', '');
+    var lv = parseInt((lvLine.match(/第\s*(\d+)\s*级/) || [0, 1])[1], 10) || 1;
+    var rec = {
+      id: grab('ID：') || ('imp' + Math.random().toString(36).slice(2)),
+      name: name || '无名',
+      lv: lv,
+      rank: grab('单位：') ? '' : '',
+      unit: grab('单位：'),
+      place: grab('任职地：'),
+      track: grab('路线：').split('　')[0],
+      cash: 0,
+      asset: parseFloat((grab('净资产：').match(/[\d.]+/) || [0])[0]) || 0,
+      years: parseFloat((grab('在职：').match(/[\d.]+/) || [0])[0]) || 0,
+      ending: grab('结局：'),
+      ts: Date.now()
+    };
+    /* 官名：文本里「官级：第 N 级」前面那行是官职 */
+    var m2 = t.match(/【仕途·成绩】([^\n]*)/);
+    if (m2) rec.rank = m2[1].split('　').slice(1).join('　').trim() || ('第 ' + lv + ' 级');
+    if (!rec.name || !rec.unit) return null;
+    return rec;
+  }
+
+  /* 把导入/自己的成绩存起来（本地榜） */
+  function saveMine(rec) {
+    var key = 'shitu_lb_all';
+    var all = [];
+    try { all = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { all = []; }
+    for (var i = 0; i < all.length; i++) { if (all[i].id === rec.id) { all[i] = rec; return save(key, all); } }
+    all.push(rec);
+    return save(key, all);
+    function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  }
+  function loadAll() {
+    try { return JSON.parse(localStorage.getItem('shitu_lb_all') || '[]'); } catch (e) { return []; }
+  }
+
+  function sorter(key) {
+    return function (a, b) {
+      var x = num(a[key]), y = num(b[key]);
+      if (y !== x) return y - x;
+      return num(b.lv) - num(a.lv);
+    };
+  }
+
+  var BOARDS = [
+    { k: 'lv', n: '官级榜', unit: '', tip: '按最终官级排名' },
+    { k: 'asset', n: '财富榜', unit: ' 万', tip: '现金 + 房产 + 车辆' },
+    { k: 'years', n: '时长榜', unit: ' 年', tip: '在职年头最长' }
+  ];
+
+  window.Rank = {
+    BOARDS: BOARDS,
+    makeRecord: makeRecord,
+    fetchList: fetchList,
+    mergeMine: mergeMine,
+    submit: submit,
+    exportText: exportText, importText: importText, saveMine: saveMine, loadAll: loadAll,
+    sorter: sorter,
+    cache: cache,
+    readURL: function () { return LB_READ; },
+    canPost: function () { return !!LB_POST; },
+    mine: function () {
+      try { var s = localStorage.getItem(K_LOCAL); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    }
   };
 })(window);
 
@@ -1462,6 +1676,20 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.61',
+    d: [
+      '12 条路线第 20 级统一为「人民公仆」，各线内官阶不再重名',
+      '军政线「干事」重名已改（副连职干事）',
+      '新增云排行榜：官级榜 / 财富榜 / 时长榜，各显示前 20，自己的名次高亮',
+      '排行榜支持提交成绩、粘贴他人在群里分享的成绩文本',
+      '购房扩到 18 档：城中村单间 → 单身公寓 → 两居三居 → 大平层 → 别墅 → 庄园',
+      '购车扩到 25 档：老款捷达 3.5 万 → 朗逸卡罗拉 → 奥迪宝马 → 红旗 L5 800 万',
+      '车辆显示具体型号，住房显示房型与建筑面积',
+      '净资产 = 现金 + 房产市值 + 车辆市值 − 未还贷款',
+      '补充人大政协、开发区、垂直管理、宣传文化线的基层部门'
+    ]
+  },
+  {
     v: '1.9.48',
     d: [
       '开屏免责声明加关闭键（右上角 ✕），点一下直接进入，不会卡住',
@@ -1613,7 +1841,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.50.1030';
+  var VERSION = '1.9.62.1030';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -2431,8 +2659,8 @@ window.CHANGELOG = [
       id: 'rd', name: '人大政协', outfit: 'civil', color: '#6b5b8a',
       desc: '人民代表大会与政治协商会议，监督、立法、建言，位置清贵。',
       units: {
-        town: ['人大主席团办公室', '政协联络组'],
-        county: ['人大常委会办公室', '人大法制委员会', '人大财经委员会', '政协委员会办公室', '政协提案委员会', '政协经济委员会'],
+        town: ['人大主席团办公室', '政协联络组', '人大代表联络站', '政协委员之家'],
+        county: ['人大常委会办公室', '人大法制委员会', '人大财经委员会', '人大教科文卫委员会', '人大农业农村委员会', '人大人事代表联络工委', '政协委员会办公室', '政协提案委员会', '政协经济委员会', '政协教科卫体委员会', '政协社会和法制委员会', '政协委员联络室'],
         city: ['人大常委会办公厅', '人大法制委员会', '人大财政经济委员会', '人大城乡建设委员会', '政协办公厅', '政协提案委员会', '政协经济委员会', '政协教科卫体委员会'],
         prov: ['人大常委会办公厅', '人大法制委员会', '人大财政经济委员会', '人大教育科学文化卫生委员会', '政协办公厅', '政协提案委员会', '政协经济委员会', '政协人口资源环境委员会']
       },
@@ -2443,7 +2671,7 @@ window.CHANGELOG = [
       id: 'cz', name: '垂直管理', outfit: 'civil', color: '#2f6b6b',
       desc: '税务、海关、金融监管、统计调查，条条为主，块块为辅。',
       units: {
-        town: ['税务分局', '市场监督管理所', '统计站'],
+        town: ['税务分局', '市场监督管理所', '统计站', '气象信息服务站', '邮政代办所'],
         county: ['税务局', '海关办事处', '国家统计局调查队', '气象局', '邮政管理局', '烟草专卖局', '银保监组'],
         city: ['税务局', '海关', '国家统计局调查队', '气象局', '邮政管理局', '烟草专卖局', '金融监管分局', '外汇管理局', '地震局'],
         prov: ['税务局', '海关总署分署', '国家统计局调查总队', '气象局', '邮政管理局', '烟草专卖局', '金融监管局', '外汇管理局', '地震局', '通信管理局']
@@ -2455,8 +2683,8 @@ window.CHANGELOG = [
       id: 'kf', name: '开发区', outfit: 'civil', color: '#3e7a5c',
       desc: '高新区、经开区、自贸区，体制里的特区，干得多也跑得快。',
       units: {
-        town: ['工业园区管理办公室', '招商服务局'],
-        county: ['经济开发区管理委员会', '高新技术产业园区管委会', '招商服务中心', '企业服务中心'],
+        town: ['工业园区管理办公室', '招商服务局', '园区企业服务中心', '园区规划建设所'],
+        county: ['经济开发区管理委员会', '高新技术产业园区管委会', '招商服务中心', '企业服务中心', '园区规划建设局', '园区安全生产监督管理所', '园区综合执法局', '园区财政审计所'],
         city: ['经济技术开发区管委会', '高新技术产业开发区管委会', '保税区管委会', '自贸片区管委会', '投资促进局'],
         prov: ['经济技术开发区管委会', '高新技术产业开发区管委会', '自由贸易试验区管委会', '省级新区管委会', '投资促进局']
       },
@@ -2514,7 +2742,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     dw: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2536,7 +2764,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     qt: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2558,7 +2786,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     rd: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2580,7 +2808,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     kf: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2602,7 +2830,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     xc: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2624,7 +2852,7 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     cz: [
       { name: '科员', real: '二级科员·办事员级' },
@@ -2646,12 +2874,12 @@ window.CHANGELOG = [
       { name: '国家级副职', real: '副国级' },
       { name: '国家级副职·中枢', real: '副国级' },
       { name: '国家级正职', real: '正国级' },
-      { name: '国家级正职·内阁总理', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     /* 军政（人民武装 / 国防动员） */
     jz: [
       { name: '干事', real: '少尉·排职' },
-      { name: '干事', real: '中尉·副连职' },
+      { name: '副连职干事', real: '中尉·副连职' },
       { name: '副股长', real: '上尉·正连职' },
       { name: '股长', real: '少校·副营职' },
       { name: '副科长', real: '少校·正营职' },
@@ -2669,7 +2897,7 @@ window.CHANGELOG = [
       { name: '总部副局长', real: '中将·副战区职' },
       { name: '总部局长', real: '中将·正战区职' },
       { name: '总部副部长', real: '上将·正战区职' },
-      { name: '总部部长', real: '上将·正战区职' }
+      { name: '人民公仆', real: '上将·正战区职' }
     ],
     /* 武警（警衔序列） */
     wj: [
@@ -2692,7 +2920,7 @@ window.CHANGELOG = [
       { name: '少将', real: '正军职' },
       { name: '少将·总部副职', real: '副战区职' },
       { name: '中将', real: '正战区职' },
-      { name: '上将·总部司令员', real: '正战区职' }
+      { name: '人民公仆', real: '正战区职' }
     ],
     /* 政法（人民警察警衔） */
     zf: [
@@ -2715,7 +2943,7 @@ window.CHANGELOG = [
       { name: '总警监·副国', real: '副国级' },
       { name: '总警监·中枢', real: '副国级' },
       { name: '总警监·正国', real: '正国级' },
-      { name: '总警监·最高', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     /* 事业（专业技术岗位 + 管理岗） */
     sy: [
@@ -2738,7 +2966,7 @@ window.CHANGELOG = [
       { name: '院长·正部', real: '正部级' },
       { name: '院长·副国', real: '副国级' },
       { name: '院长·正国', real: '正国级' },
-      { name: '院长·最高', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ],
     /* 国企 */
     gq: [
@@ -2761,7 +2989,7 @@ window.CHANGELOG = [
       { name: '央企副总', real: '正部级' },
       { name: '央企总经理', real: '副国级' },
       { name: '央企副董事长', real: '副国级' },
-      { name: '央企董事长', real: '正国级' }
+      { name: '人民公仆', real: '正国级' }
     ]
   };
 
@@ -3596,15 +3824,97 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     { lv: 2, n: '机关公寓', area: 96, note: '三室两厅，科级以上可申请。' },
     { lv: 3, n: '干部周转住房', area: 128, note: '处级以上，带独立书房。' }
   ];
+  /* 住房：从单间到庄园，面积与价位对应，越高档核查风险越大 */
   var HOUSE_BUY = [
-    { id: 'b1', n: '购置首套房', price: 60, risk: 0, it: 0, d: '两室一厅，首付三成。' },
-    { id: 'b2', n: '改善换房', price: 130, risk: 3, it: -2, d: '三室两厅，学区尚可。' },
-    { id: 'b3', n: '购置大平层/别墅', price: 380, risk: 9, it: -6, d: '这个价位，本身就是一种信号。' }
+    { id: 'b1', n: '城中村单间', price: 8, area: 28, type: '单间', risk: 0, it: 0,
+      tag: '过渡', d: '一室一厅，月租都能省下来。刚入职那年，很多人住这儿。' },
+    { id: 'b2', n: '合租单间', price: 15, area: 35, type: '单间', risk: 0, it: 0,
+      tag: '过渡', d: '跟人合租，共用厨房卫生间。' },
+    { id: 'b3', n: '单身公寓', price: 26, area: 45, type: '一居室', risk: 0, it: 0,
+      tag: '刚需', d: '一室一厅，独立厨卫，自己的第一套房。' },
+    { id: 'b4', n: '老小区一居室', price: 38, area: 55, type: '一居室', risk: 0, it: 0,
+      tag: '刚需', d: '房龄二十年的老楼，地段还行。' },
+    { id: 'b5', n: '经济适用两居', price: 55, area: 72, type: '两居室', risk: 0, it: 0,
+      tag: '刚需', d: '两室一厅，够一家三口住。' },
+    { id: 'b6', n: '普通小区两居', price: 78, area: 85, type: '两居室', risk: 1, it: 0,
+      tag: '刚需', d: '带电梯的小区，物业还行。' },
+    { id: 'b7', n: '紧凑三居', price: 105, area: 98, type: '三居室', risk: 2, it: -1,
+      tag: '改善', d: '三室两厅，孩子有自己房间了。' },
+    { id: 'b8', n: '学区两居', price: 135, area: 80, type: '两居室', risk: 3, it: -1,
+      tag: '改善', d: '房子一般，学区值这个价。' },
+    { id: 'b9', n: '品质三居', price: 168, area: 125, type: '三居室', risk: 4, it: -2,
+      tag: '改善', d: '南北通透，小区带绿化。' },
+    { id: 'b10', n: '学区三居', price: 210, area: 118, type: '三居室', risk: 5, it: -2,
+      tag: '改善', d: '重点小学隔壁，家里人最在意这个。' },
+    { id: 'b11', n: '大平层', price: 285, area: 165, type: '大平层', risk: 7, it: -4,
+      tag: '高端', d: '一层一户，客厅能摆两圈沙发。' },
+    { id: 'b12', n: '江景大平层', price: 360, area: 185, type: '大平层', risk: 9, it: -5,
+      tag: '高端', d: '落地窗对着江，房价里有一半是窗外的景。' },
+    { id: 'b13', n: '联排别墅', price: 450, area: 230, type: '别墅', risk: 12, it: -7,
+      tag: '高端', d: '前后带院子，邻居也是同类人。' },
+    { id: 'b14', n: '独栋别墅', price: 620, area: 300, type: '别墅', risk: 15, it: -9,
+      tag: '豪宅', d: '独门独院，车库能停三辆。这个价位，本身就是一种信号。' },
+    { id: 'b15', n: '中式合院', price: 780, area: 350, type: '别墅', risk: 18, it: -11,
+      tag: '豪宅', d: '青砖灰瓦，院子里有棵老树。' },
+    { id: 'b16', n: '顶级别墅', price: 980, area: 420, type: '别墅', risk: 21, it: -13,
+      tag: '豪宅', d: '带泳池和酒窖。填进报告里，总有人会多看两眼。' },
+    { id: 'b17', n: '庄园', price: 1500, area: 650, type: '庄园', risk: 25, it: -16,
+      tag: '顶级', d: '带园林和客房。到了这一档，已经不是住房问题了。' },
+    { id: 'b18', n: '私人庄园', price: 2600, area: 880, type: '庄园', risk: 30, it: -20,
+      tag: '顶级', d: '占地十几亩。这种东西一旦被发现，就很难解释。' }
   ];
+  /* 车辆：从几万到几百万，带具体型号 */
   var CAR_BUY = [
-    { id: 'c1', n: '买辆代步车', price: 12, risk: 0, d: '十几万的车，够用不扎眼。' },
-    { id: 'c2', n: '换辆好车', price: 35, risk: 4, it: -2, d: '车是面子，也是线索。' },
-    { id: 'c3', n: '换辆豪车', price: 90, risk: 10, it: -6, d: '开进政府大院会被多看两眼。' }
+    { id: 'c1', n: '二手车', model: '老款捷达', price: 3.5, risk: 0, it: 0,
+      tag: '入门', d: '练手用的，刮了不心疼。' },
+    { id: 'c2', n: '微型代步车', model: '奇瑞 QQ', price: 4.2, risk: 0, it: 0,
+      tag: '入门', d: '省油好停，就是上高速有点飘。' },
+    { id: 'c3', n: '入门小车', model: '比亚迪 F0', price: 5.5, risk: 0, it: 0,
+      tag: '入门', d: '代步够了，同事不会多看你一眼。' },
+    { id: 'c4', n: '合资小型车', model: '大众 Polo', price: 9.5, risk: 0, it: 0,
+      tag: '代步', d: '结实耐用，年轻人第一辆车的常选项。' },
+    { id: 'c5', n: '紧凑家用车', model: '大众朗逸', price: 13.8, risk: 0, it: 0,
+      tag: '代步', d: '销量榜常年前三，中庸但不会错。' },
+    { id: 'c6', n: '日系家用车', model: '丰田卡罗拉', price: 15.2, risk: 1, it: 0,
+      tag: '代步', d: '省油省心，开十年不大修。' },
+    { id: 'c7', n: '国产新能源', model: '比亚迪秦 PLUS', price: 16.8, risk: 1, it: 0,
+      tag: '代步', d: '绿牌不限行，单位充电桩也方便。' },
+    { id: 'c8', n: '中型轿车', model: '本田雅阁', price: 20.5, risk: 2, it: 0,
+      tag: '中档', d: 'B 级车的门槛，科长级别开这个很正常。' },
+    { id: 'c9', n: '合资中级车', model: '大众帕萨特', price: 23.8, risk: 2, it: -1,
+      tag: '中档', d: '机关大院里最多的车，低调且得体。' },
+    { id: 'c10', n: '合资 SUV', model: '丰田 RAV4', price: 24.5, risk: 2, it: -1,
+      tag: '中档', d: '底盘高，下乡调研方便。' },
+    { id: 'c11', n: '中型 SUV', model: '大众途观 L', price: 27.6, risk: 3, it: -1,
+      tag: '中档', d: '家用和公务都撑得住场面。' },
+    { id: 'c12', n: '日系中级车', model: '丰田凯美瑞', price: 25.9, risk: 3, it: -1,
+      tag: '中档', d: '坐起来舒服，适合跑长途。' },
+    { id: 'c13', n: '国产高端新能源', model: '比亚迪汉 EV', price: 29.8, risk: 3, it: -1,
+      tag: '中档', d: '加速快，内饰也够档次。' },
+    { id: 'c14', n: '豪华品牌入门', model: '奥迪 A4L', price: 34.5, risk: 5, it: -3,
+      tag: '高档', d: '四个圈，进院子会有人看一眼。' },
+    { id: 'c15', n: '豪华中级车', model: '宝马 3 系', price: 36.8, risk: 5, it: -3,
+      tag: '高档', d: '年轻人喜欢，领导可能觉得张扬。' },
+    { id: 'c16', n: '豪华中型车', model: '奔驰 C 级', price: 38.2, risk: 6, it: -3,
+      tag: '高档', d: '立标还是大标，是个问题。' },
+    { id: 'c17', n: '豪华 SUV', model: '奥迪 Q5L', price: 45.6, risk: 7, it: -4,
+      tag: '高档', d: '处级干部开这个不算超标，但也接近线了。' },
+    { id: 'c18', n: '中大型豪华车', model: '宝马 5 系', price: 52.8, risk: 8, it: -5,
+      tag: '豪车', d: '这个价位，已经在被人议论的范围内。' },
+    { id: 'c19', n: '行政级轿车', model: '奥迪 A6L', price: 58.5, risk: 9, it: -5,
+      tag: '豪车', d: '机关里最常见的"超标参照物"。' },
+    { id: 'c20', n: '豪华行政车', model: '奔驰 E 级', price: 62.4, risk: 10, it: -6,
+      tag: '豪车', d: '后排很舒服，但你自己一般坐后排吗？' },
+    { id: 'c21', n: '豪华 SUV 旗舰', model: '宝马 X5', price: 78.9, risk: 12, it: -7,
+      tag: '豪车', d: '开进政府大院会被多看两眼。' },
+    { id: 'c22', n: '豪华轿跑', model: '保时捷 Panamera', price: 128, risk: 16, it: -10,
+      tag: '超豪华', d: '这已经不是车了，是一份说明。' },
+    { id: 'c23', n: '顶级豪华轿车', model: '奔驰 S 级', price: 165, risk: 18, it: -12,
+      tag: '超豪华', d: '通常是给领导坐的，不是给自己买的。' },
+    { id: 'c24', n: '豪华旗舰 SUV', model: '劳斯莱斯库里南', price: 610, risk: 26, it: -18,
+      tag: '超豪华', d: '这种车出现在干部名下，不出三个月就有人查。' },
+    { id: 'c25', n: '国产礼宾车', model: '红旗 L5', price: 800, risk: 30, it: -22,
+      tag: '超豪华', d: '国家礼宾车，私人持有基本不可能。' }
   ];
   var INVEST = [
     { id: 'i1', n: '稳健理财', rate: 0.040, risk: 0.02, d: '年化约 4%，风险可控。' },
@@ -10894,7 +11204,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       G.loan = round1(G.loan + (b.price - down));
       G.house = i + 1;
       EN.ledger(G, 'out', '购房·' + b.n, need);
-      if (b.risk) { G.risk += b.risk; G.it = Math.round(clamp(G.it + b.it, 0, 100)); }
+      if (b.risk) { G.risk += b.risk; G.it = Math.round(clamp(G.it + (b.it || 0), 0, 100)); }
+      G.houseYear = G.year;
       G.pr = Math.round(clamp(G.pr + 3, 0, 100));
       log('财务', '你购置了' + b.n + '，贷款 ' + (b.price - down) + ' 万。', 'up');
       EN.autoSave();
@@ -10908,7 +11219,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       G.cash = round1(G.cash - c.price);
       G.car = i + 1;
       EN.ledger(G, 'out', '购车·' + c.n, c.price);
-      if (c.risk) { G.risk += c.risk; G.it = Math.round(clamp(G.it + c.it, 0, 100)); }
+      if (c.risk) { G.risk += c.risk; G.it = Math.round(clamp(G.it + (c.it || 0), 0, 100)); }
+      G.carYear = G.year;
       log('财务', '你' + c.n + '。');
       EN.autoSave();
       return '购车成功';
@@ -12266,6 +12578,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     network: '<circle cx="6" cy="8" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="17" r="2.5"/><path d="M8 9.5l2.5 5M16.5 8l-3 7M8.3 7.5l7.4-1.2"/>',
     save: '<path d="M5 3h11l3 3v15H5V3z"/><path d="M8 3v6h7V3M8 14h8v7H8z"/>',
     star: '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 18l-6.2 3.1L7 14.2l-5-4.9 6.9-1z"/>',
+    cup: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0z"/><path d="M17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>',
     review: '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
     report: '<path d="M9 11l3 3 5-6"/><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h3"/>',
     village: '<path d="M3 21h18M5 21V9l7-5 7 5v12"/><path d="M10 21v-6h4v6"/>'
@@ -12749,7 +13062,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     { id: 'review', k: 'review', n: '述职测评', d: '年度报告 · 民主测评' },
     { id: 'report', k: 'report', n: '个人事项', d: '填报 · 抽查 · 干部档案' },
     { id: 'village', k: 'village', n: '驻村帮扶', d: '第一书记 · 基层经历' },
-    { id: 'priv', k: 'star', n: '级别特权', d: '到了这一级，你享哪些待遇' }
+    { id: 'priv', k: 'star', n: '级别特权', d: '到了这一级，你享哪些待遇' },
+    { id: 'lb', k: 'cup', n: '云排行榜', d: '官级 / 财富 / 时长 · 前 20' }
   ];
   function renderFn() {
     var G = g(), h = topbar(G);
@@ -13022,6 +13336,99 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     return h;
   }
 
+  /* ---------- 云排行榜 ---------- */
+  var LB_TAB = 'lv';
+  /* 进榜单页时自动拉一次（只拉一次，之后手动刷新） */
+  function subLBAuto() {
+    var R = global.Rank; if (!R) return;
+    if (R.cache.loaded || R.cache.loading) return;
+    R.cache.loading = true;
+    R.fetchList(function (list, err) {
+      R.cache.loading = false;
+      if (global.UI && UI.render) UI.render();
+    });
+  }
+  function subLB() {
+    var G = g(), h = '';
+    var R = global.Rank;
+    if (!R) return '<div class="card"><div class="hint">排行榜模块未加载</div></div>';
+
+    h += '<div class="card"><div class="nm">云排行榜　<span class="rtier">官级 / 财富 / 时长</span></div>' +
+      '<div class="hint">各榜只显示前 20 名。成绩来自全网玩家，提交后按官级、财富、在职年头分别排名。</div></div>';
+
+    /* 榜切换 */
+    h += '<div class="chips">' + R.BOARDS.map(function (b) {
+      return '<span class="chip ' + (LB_TAB === b.k ? 'on' : '') + '" onclick="APP.lbTab(\'' + b.k + '\')">' + b.n + '</span>';
+    }).join('') + '</div>';
+
+    var list = R.cache.list || [];
+    var mine = R.mine();
+    var all = list.slice();
+    /* 本地保存的（自己 + 从群里导入的）也一并算进来 */
+    var localAll = R.loadAll ? R.loadAll() : [];
+    for (var la = 0; la < localAll.length; la++) {
+      var r0 = localAll[la], found = false;
+      for (var lb = 0; lb < all.length; lb++) { if (all[lb].id === r0.id) { all[lb] = r0; found = true; break; } }
+      if (!found) all.push(r0);
+    }
+    if (mine) {
+      var dup = false;
+      for (var z = 0; z < all.length; z++) { if (all[z].id === mine.id) { dup = true; break; } }
+      if (!dup) all.push(mine);
+      else for (var z2 = 0; z2 < all.length; z2++) { if (all[z2].id === mine.id) all[z2] = mine; }
+    }
+
+    var bd = R.BOARDS.filter(function (b) { return b.k === LB_TAB; })[0] || R.BOARDS[0];
+    var sorted = all.slice().sort(R.sorter(LB_TAB)).slice(0, 20);
+
+    h += '<div class="card"><div class="nm">' + esc(bd.n) + ' · 前 20' +
+      '<span class="rtier">' + esc(bd.tip) + '</span></div>';
+
+    if (!R.cache.loaded && !all.length) {
+      h += '<div class="hint">正在读取云端榜单…</div>';
+    } else if (!sorted.length) {
+      h += '<div class="hint">榜单还是空的。提交你的成绩，就能成为第一批上榜的人。</div>';
+    } else {
+      h += sorted.map(function (p, i) {
+        var isMe = mine && p.id === mine.id;
+        var val = LB_TAB === 'lv' ? ('第 ' + (p.lv || 1) + ' 级 · ' + (p.rank || ''))
+          : (LB_TAB === 'asset' ? ((p.asset || 0) + ' 万') : ((p.years || 0) + ' 年'));
+        return '<div class="li ' + (isMe ? 'me' : '') + '">' +
+          '<div class="lbrow">' +
+          '<span class="lbno ' + (i < 3 ? 'top' : '') + '">' + (i + 1) + '</span>' +
+          '<div class="lbmain"><b>' + esc(p.name || '无名') + '</b>' +
+          (isMe ? '<span class="tag" style="background:#fdf8ef;color:#a8842c">我</span>' : '') +
+          '<div class="ds">' + esc(p.unit || '') + '</div>' +
+          '<div class="ds" style="color:#8a7f70">' + esc(p.place || '') +
+          (p.track ? '　' + esc(p.track) : '') + '</div></div>' +
+          '<div class="lbval">' + esc(val) + '</div></div></div>';
+      }).join('');
+    }
+    if (R.cache.err) h += '<div class="hint" style="color:#b02a2a">' + esc(R.cache.err) + '</div>';
+    if (R.cache.updated) h += '<div class="hint">榜单更新于 ' + esc(R.cache.updated) + '</div>';
+    h += '</div>';
+
+    /* 我的成绩 + 提交 */
+    var rec = R.makeRecord(G, EN);
+    h += '<div class="card"><div class="nm">我的成绩</div>' +
+      '<div class="payrow"><span>姓名</span><b>' + esc(rec.name) + '</b></div>' +
+      '<div class="payrow"><span>官级</span><b>第 ' + rec.lv + ' 级 · ' + esc(rec.rank) + '</b></div>' +
+      '<div class="payrow"><span>单位职务</span><b>' + esc(rec.unit) + '</b></div>' +
+      '<div class="payrow"><span>净资产</span><b>' + rec.asset + ' 万</b></div>' +
+      '<div class="payrow"><span>在职</span><b>' + rec.years + ' 年</b></div>' +
+      '<div class="btn-row">' +
+      '<button class="btn" onclick="APP.lbSubmit()">提交成绩</button>' +
+      '<button class="btn ghost" onclick="APP.lbRefresh()">刷新榜单</button>' +
+      '</div>' +
+      '<div class="btn-row"><button class="btn ghost sm" onclick="APP.lbImport()">粘贴他人成绩</button></div>' +
+      '<div class="hint">' + (R.canPost()
+        ? '提交后会并入云端榜单，同名次取更好成绩。'
+        : '云端写入未开通。点「提交成绩」会生成一段成绩文本，复制到交流群，' +
+          '维护者会把它合并进榜单。') + '</div></div>';
+
+    return h;
+  }
+
   function subVillage() {
     var G = g(), h = '';
     var V = S2().Village;
@@ -13077,6 +13484,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     else if (id === 'report') h += subReport();
     else if (id === 'village') h += subVillage();
     else if (id === 'priv') h += subPriv();
+    else if (id === 'lb') { subLBAuto(); h += subLB(); }
     h += '<div style="height:10px"></div>' + backBtn(id) + '</div>';
     return h;
   }
@@ -13584,14 +13992,19 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     /* ---- 自购房产 ---- */
     if (G.house > 0) {
       var hb = D2.HOUSE_BUY[G.house - 1];
-      h += '<div class="card"><div class="sect2">自购房产</div>' +
+      var loanTip = G.loan > 0 ? '　剩余贷款 ' + Math.round(G.loan) + ' 万' : '';
+      h += '<div class="card"><div class="sect2">自购房产<span class="rtier">' + esc(hb.tag || '') + '</span></div>' +
         '<div class="payrow"><span>房产</span><b>' + esc(hb.n) + '</b></div>' +
+        '<div class="payrow"><span>房型</span><b>' + esc(hb.type || '住宅') + '</b></div>' +
+        '<div class="payrow"><span>建筑面积</span><b>' + hb.area + ' ㎡</b></div>' +
         '<div class="payrow"><span>购置价</span><b>' + hb.price + ' 万</b></div>' +
         '<div class="payrow"><span>坐落</span><b>' + esc(a0.c.n) + '</b></div>' +
-        '<div class="payrow"><span>产权</span><b>个人所有</b></div>' +
-        '<div class="payrow"><span>购房时间</span><b>' + (G.houseYear || G.year) + ' 年</b></div>' +
-        '<div class="payrow"><span>核查风险</span><b>' + (G.house >= 3 ? '偏高（大面积豪宅）' : (G.house === 2 ? '一般' : '低')) + '</b></div>' +
-        '<div class="hint">自购房要填进个人有关事项报告，瞒报会被抽查。</div></div>';
+        '<div class="payrow"><span>产权性质</span><b>个人所有</b></div>' +
+        '<div class="payrow"><span>购房时间</span><b>' + (G.houseYear || G.year) + ' 年' + loanTip + '</b></div>' +
+        '<div class="payrow"><span>核查风险</span><b>' +
+        (hb.risk >= 12 ? '<span style="color:#b02a2a">高（' + hb.risk + '）</span>' : (hb.risk >= 5 ? '中（' + hb.risk + '）' : '低（' + hb.risk + '）')) +
+        '</b></div>' +
+        '<div class="hint">' + esc(hb.d) + '　自购房要填进个人有关事项报告，瞒报会被抽查。</div></div>';
     }
 
     /* ---- 公务用车 ---- */
@@ -13612,29 +14025,55 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     }
     h += '</div>';
 
-    /* 置产安排 */
-    h += '<div class="card"><div class="sect2">置产安排</div>' +
-      '<div class="chips">' +
+    /* 置产安排：房、车分档陈列，带型号、面积、价位 */
+    h += '<div class="card"><div class="sect2">购房　<span class="rtier">首付三成 · 可用公积金</span></div>' +
+      '<div class="hint">从单间到庄园，共 ' + D2.HOUSE_BUY.length + ' 档。越高档越扎眼，核查风险越高。</div>' +
       D2.HOUSE_BUY.map(function (b, i) {
-        return '<span class="chip ' + (G.house >= i + 1 ? 'dis' : '') + '" onclick="APP.buyHouse(' + i + ')">购房·' + b.n + '(' + b.price + '万)</span>';
-      }).join('') +
+        var owned = G.house >= i + 1;
+        var afford = G.cash >= Math.round(b.price * 0.3 * 0.4);
+        return '<div class="opt sm2 ' + (owned ? 'dis' : '') + '" onclick="APP.buyHouse(' + i + ')">' +
+          '<div class="l">' + esc(b.n) +
+          '<span class="tag">' + esc(b.type || '住宅') + ' · ' + b.area + ' ㎡</span>' +
+          '<span class="cost">' + b.price + ' 万</span>' +
+          (owned ? '<span class="tag" style="background:#eef3ee;color:#4f7a54">已持有</span>' : '') +
+          (b.risk >= 10 && !owned ? '<span class="tag" style="background:#fdeeec;color:#b02a2a">高风险</span>' : '') +
+          '</div>' +
+          '<div class="ds">' + esc(b.d) + '</div>' +
+          '<div class="ds" style="color:#8a7f70">首付约 ' + Math.round(b.price * 0.3) +
+          ' 万　核查风险 ' + b.risk + (b.it ? '　清廉 ' + b.it : '') + '</div></div>';
+      }).join('') + '</div>';
+
+    h += '<div class="card"><div class="sect2">购车　<span class="rtier">全款 · 落地即登记</span></div>' +
+      '<div class="hint">从几万到几百万，共 ' + D2.CAR_BUY.length + ' 档。车是面子，也是线索。</div>' +
       D2.CAR_BUY.map(function (c, i) {
-        return '<span class="chip ' + (G.car >= i + 1 ? 'dis' : '') + '" onclick="APP.buyCar(' + i + ')">购车·' + c.n + '(' + c.price + '万)</span>';
-      }).join('') +
-      '</div>' +
-      '<div class="hint">首付三成，可用公积金；越高档越扎眼，廉政风险越高。</div>' +
-      (G.car > 0 ? '<div class="cardx"><div class="sect2">自购车辆</div>' +
+        var owned = G.car >= i + 1;
+        return '<div class="opt sm2 ' + (owned ? 'dis' : '') + '" onclick="APP.buyCar(' + i + ')">' +
+          '<div class="l">' + esc(c.n) +
+          '<span class="tag">' + esc(c.model || '') + '</span>' +
+          '<span class="cost">' + c.price + ' 万</span>' +
+          (owned ? '<span class="tag" style="background:#eef3ee;color:#4f7a54">已持有</span>' : '') +
+          (c.risk >= 12 && !owned ? '<span class="tag" style="background:#fdeeec;color:#b02a2a">超标</span>' : '') +
+          '</div>' +
+          '<div class="ds">' + esc(c.d) + '</div>' +
+          '<div class="ds" style="color:#8a7f70">档次 ' + esc(c.tag || '') +
+          '　核查风险 ' + c.risk + (c.it ? '　清廉 ' + c.it : '') + '</div></div>';
+      }).join('') + '</div>';
+      h += (G.car > 0 ? '<div class="cardx"><div class="sect2">自购车辆<span class="rtier">' + esc(D2.CAR_BUY[G.car - 1].tag || '') + '</span></div>' +
         '<div class="payrow"><span>车型</span><b>' + esc(D2.CAR_BUY[G.car - 1].n) + '</b></div>' +
+        '<div class="payrow"><span>具体型号</span><b>' + esc(D2.CAR_BUY[G.car - 1].model || '-') + '</b></div>' +
         '<div class="payrow"><span>购置价</span><b>' + D2.CAR_BUY[G.car - 1].price + ' 万</b></div>' +
         '<div class="payrow"><span>号牌</span><b>' +
         (G.carPlate ? '<span class="plate" style="margin:0">' + esc(G.carPlate) + '</span>'
           : '<span style="color:#a8402f">未选号</span>') + '</b></div>' +
         '<div class="payrow"><span>登记地</span><b>' + esc(a0.c.n) + '车管所</b></div>' +
         '<div class="payrow"><span>购置时间</span><b>' + (G.carYear || G.year) + ' 年</b></div>' +
-        '<div class="payrow"><span>核查风险</span><b>' + (G.car >= 3 ? '偏高（豪车扎眼）' : (G.car === 2 ? '一般' : '低')) + '</b></div>' +
+        '<div class="payrow"><span>核查风险</span><b>' +
+        (D2.CAR_BUY[G.car - 1].risk >= 12 ? '<span style="color:#b02a2a">超标（' + D2.CAR_BUY[G.car - 1].risk + '）</span>'
+          : (D2.CAR_BUY[G.car - 1].risk >= 5 ? '偏高（' + D2.CAR_BUY[G.car - 1].risk + '）' : '低（' + D2.CAR_BUY[G.car - 1].risk + '）')) +
+        '</b></div>' +
         '<div class="btn-row"><button class="btn ghost sm" onclick="APP.plateOpen()">' +
         (G.carPlate ? '重新摇号' : '去摇号') + '</button></div>' +
-        '<div class="hint">新车登记后到车管所摇号，摇到哪号是哪号。豪车会被同事议论，也更容易被核查。</div></div>' : '') +
+        '<div class="hint">' + esc(D2.CAR_BUY[G.car - 1].d) + '　豪车会被同事议论，也更容易被核查。</div></div>' : '') +
       '</div>';
 
     /* 人情往来 */
@@ -14419,6 +14858,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         window.requestAnimationFrame(function () { window.scrollTo(0, y); });
       }
     },
+    setLbTab: function (k) { LB_TAB = k || 'lv'; },
     renderEnd: renderEnd
   };
 })(window);
@@ -14608,6 +15048,73 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     },
 
     /* ---------------- 开屏与主界面 ---------------- */
+    lbTab: function (k) { if (global.UI && UI.setLbTab) UI.setLbTab(k); UI.render(); },
+    lbRefresh: function () {
+      var R = global.Rank; if (!R) return toast('排行榜未加载');
+      toast('正在读取云端榜单…');
+      R.fetchList(function (list, err) {
+        if (err) toast(err); else toast('榜单已刷新（' + list.length + ' 位玩家）');
+        UI.render();
+      });
+    },
+    lbSubmit: function () {
+      var R = global.Rank; if (!R) return toast('排行榜未加载');
+      var G = g();
+      var rec = R.makeRecord(G, EN);
+      function after(ok, msg) {
+        if (ok) { toast('成绩已提交到云端榜单'); UI.render(); return; }
+        /* 没有写入端点 → 生成成绩文本给玩家复制到群里 */
+        var txt = R.exportText(rec);
+        modal('<h3>提交成绩</h3>' +
+          '<p class="hint">云端写入还没开通。把下面这段复制到<b>玩家交流群</b>，' +
+          '维护者会把它并进榜单。</p>' +
+          '<div class="sect2">成绩文本</div>' +
+          '<textarea class="txt" id="lbTxt" rows="9" readonly>' + esc(txt) + '</textarea>' +
+          '<div class="btn-row"><button class="btn" onclick="APP.lbCopy()">复制</button></div>' +
+          '<div style="height:6px"></div><button class="btn ghost" onclick="APP.close()">关闭</button>');
+      }
+      if (R.canPost()) {
+        R.submit(rec, after);
+      } else {
+        /* 即使不能上传，也先并进本地列表，自己能看到名次 */
+        R.mergeMine(rec);
+        after(false, '');
+      }
+    },
+    lbImport: function () {
+      var R = global.Rank; if (!R) return toast('排行榜未加载');
+      modal('<h3>粘贴他人成绩</h3>' +
+        '<p class="hint">把交流群里别人发的成绩文本整段粘进来，就能在本地榜单里看到他。' +
+        '（云端榜单需要维护者开通写入才会同步）</p>' +
+        '<textarea class="txt" id="lbIn" rows="7" placeholder="粘贴【仕途·成绩】开头的一段文本"></textarea>' +
+        '<div class="btn-row"><button class="btn" onclick="APP.lbImportDo()">加入榜单</button></div>' +
+        '<div style="height:6px"></div><button class="btn ghost" onclick="APP.close()">关闭</button>');
+    },
+    lbImportDo: function () {
+      var R = global.Rank, el = document.getElementById('lbIn');
+      if (!R || !el) return;
+      var rec = R.importText(el.value);
+      if (!rec) return toast('没认出成绩文本，请整段复制后再试');
+      R.saveMine(rec);
+      closeModal();
+      toast('已加入榜单：' + rec.name);
+      UI.render();
+    },
+    lbCopy: function () {
+      var el = document.getElementById('lbTxt');
+      if (!el) return;
+      el.select(); el.setSelectionRange(0, 999999);
+      try {
+        if (document.execCommand('copy')) { toast('已复制，去群里粘贴吧'); return; }
+      } catch (e) { }
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(el.value).then(function () { toast('已复制'); });
+          return;
+        }
+      } catch (e2) { }
+      toast('请手动长按选中复制');
+    },
     changelog: function () {
       var list = global.CHANGELOG || [];
       modal('<h3>更新记录</h3>' +
