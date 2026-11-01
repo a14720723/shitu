@@ -1676,6 +1676,14 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.163',
+    d: [
+      '修复「岗位是国家主席、官阶却写国务院总理」的自相矛盾：17 级以上的国家领导职务，官阶名现在一律跟随你实际担任的岗位。当你任云澜国国家主席时，顶部标签、个人页、住房配售依据、履历全部显示「国家主席」',
+      '统一了官阶名的取值入口：班子成员、同事 NPC、人物关系、任职履历里的官阶名也都跟随各自的实际岗位，不会再出现名不符实的情况',
+      '说明：晋升路径页里仍然会出现「国务院总理」等字样，那是这条线未来可选的岗位列表（国家主席、总理、委员长、政协主席都在其中），属于正常预览，不是你的现职'
+    ]
+  },
+  {
     v: '1.9.160',
     d: [
       '中央领导车牌改为按现实权力排序的固定号：国家主席京A·00001、国务院总理00002、中共中央总书记00003、中央军委主席00004、全国人大常委会委员长00005、全国政协主席00006',
@@ -2014,7 +2022,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.161.1101';
+  var VERSION = '1.9.164.1101';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -9867,10 +9875,21 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   var CAP = { ab: 100, nw: 100, it: 100, dy: 100, mt: 999, pr: 100, he: 100, pres: 100 };
 
   /* 当前角色所处路线的官阶：称谓与层级对照都只取本路线 */
+  /* 官阶名的统一入口：17 级以上的国家领导职务要跟随实际岗位。
+     否则会出现「第 18 级·国务院总理」但岗位却是「云澜国 国家主席」的自相矛盾。
+     传入 unit/post 是为了 NPC、履历等场景也能对上。 */
+  function rankTitleOf(trackId, lv, unit, post) {
+    var nm = D.rankNameOf(trackId || 'zw', lv);
+    if (lv >= 17 && D3 && D3.centralPlateRank) {
+      var cr = D3.centralPlateRank(unit, post);
+      if (cr) return { name: cr, real: nm.real };
+    }
+    return nm;
+  }
   function rankOf(g) {
     var lv = Math.max(1, Math.min(20, g.lv | 0));
     var base = D.RANKS[lv - 1];
-    var nm = D.rankNameOf(g.track ? g.track.id : 'zw', lv);
+    var nm = rankTitleOf(g.track ? g.track.id : 'zw', lv, g.unit, g.post);
     return {
       lv: lv, name: nm.name, real: nm.real,
       pay: base.pay, need: base.need, years: base.years, color: base.color
@@ -10002,7 +10021,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         id: 'c' + i, seat: seats[i].n, lead: !!seats[i].lead,
         name: npcName(gender), gender: gender,
         age: clamp(g.age + rint(4, 18), 34, 66),
-        lv: lv, rankName: D.rankNameOf(g.track ? g.track.id : 'zw', lv).name,
+        lv: lv, rankName: rankTitleOf(g.track ? g.track.id : 'zw', lv, '', '').name,
         stance: st.n, stanceD: st.d,
         rel: clamp(rint(38, 76) + (seats[i].lead ? -6 : 4), 0, 100),
         support: rint(46, 66),       /* 对你的支持度，会前沟通可提升 */
@@ -10757,7 +10776,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       rel: clamp(k.rel + rint(-10, 15), 0, 100),
       trust: clamp(Math.round(k.rel * 0.5 + rint(-8, 12)), 0, 100),
       power: lv,
-      lv: lv, rankName: D.rankNameOf(trackId, lv).name,
+      lv: lv, rankName: rankTitleOf(trackId, lv, opt.unit, opt.post).name,
       unit: opt.unit || '', post: opt.post || k.k,
       place: a.p.n + '·' + a.c.n, pos: pos,
       char: ch.n, charD: ch.d, hobby: pick2(D3.P_HOBBIES),
@@ -12189,7 +12208,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       if (!isOfficial) {
         if (n.isSystem && n.lv && chance(0.02)) {
           n.lv = Math.round(clamp(n.lv + 1, 1, 19));
-          n.rankName = D.rankNameOf(trackId, n.lv).name;
+          n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
           n.career.unshift({ y: g.year, q: g.q, k: '进步', post: n.job || n.post || '', lv: n.lv });
         }
         continue;
@@ -12225,7 +12244,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         /* 晋升 */
         var olv = n.lv, opost = n.post;
         n.lv = Math.round(clamp((n.lv || 1) + 1, 1, 20));
-        n.rankName = D.rankNameOf(trackId, n.lv).name;
+        n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
         if (n.formerStaff) {
           var npz = D.postOf(g.track, n.lv, D.REGION.at(D.REGION.randomPos()), rng);
           n.unit = npz.unit; n.post = npz.post; n.place = D.REGION.at(n.pos || g.pos).p.n;
@@ -12242,7 +12261,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         /* 降级或免职：多半是出了事 */
         var op2 = n.post;
         n.lv = Math.round(clamp((n.lv || 1) - 1, 1, 20));
-        n.rankName = D.rankNameOf(trackId, n.lv).name;
+        n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
         n.post = D.postOf(g.track, n.lv, D.REGION.at(n.pos || g.pos), rng).post;
         n.postSince = stamp;
         n.rel = Math.round(clamp(n.rel - 4, 0, 100));
@@ -12443,7 +12462,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     natPostFix: natPostFix,
     startQuarter: startQuarter, handleTodo: handleTodo, allDone: allDone, quarterEnd: quarterEnd,
     makeNpc: makeNpc, buildNpcs: buildNpcs, rankList: rankList, buildRank: buildRank,
-    rankOf: rankOf, rankAt: rankAt, pickEvent: pickEvent, makeProposal: makeProposal,
+    rankOf: rankOf, rankTitleOf: rankTitleOf, rankAt: rankAt, pickEvent: pickEvent, makeProposal: makeProposal,
     monthsOf: monthsOf, monthYear: monthYear, annualAssess: annualAssess,
     benefitsOf: benefitsOf, refreshBenefits: refreshBenefits,
     pickUrgent: pickUrgent, rollUrgent: rollUrgent, urgentChoice: urgentChoice,
@@ -12521,7 +12540,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       edu: o.edu || pick(['高中', '大专', '本科', '硕士研究生']),
       party: o.party || (Math.random() < 0.4 ? '中共党员' : '群众'),
       lv: lv, power: lv, inSystem: inSys,
-      rankName: inSys ? (o.rankName || D.rankNameOf(g.track ? g.track.id : 'zw', lv).name) : '',
+      rankName: inSys ? (o.rankName || (ENGINE.rankTitleOf ? ENGINE.rankTitleOf(g.track ? g.track.id : 'zw', lv, o.unit, o.post).name : D.rankNameOf(g.track ? g.track.id : 'zw', lv).name)) : '',
       unit: o.unit || '', post: o.job || o.kind,
       place: o.place || (a.p.n + '·' + a.c.n), pos: g.pos.slice(),
       home: o.home || a.u.n,
@@ -13668,7 +13687,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         if (type === 'up') {
           n.lv = clamp(n.lv + 1, 1, 20);
           n.post = EN.nextPostName ? EN.nextPostName(G, n) : n.post;
-          n.rankName = D.rankNameOf(G.track ? G.track.id : 'zw', n.lv).name;
+          n.rankName = (ENGINE.rankTitleOf ? ENGINE.rankTitleOf(G.track ? G.track.id : 'zw', n.lv, n.unit, n.post).name : D.rankNameOf(G.track ? G.track.id : 'zw', n.lv).name);
           n.postSince = G.year * 10 + G.q;
           G.posts = Math.max(0, (G.posts || 0) - 1);
           n.trust = clamp(n.trust + 20, 0, 100);
@@ -13915,7 +13934,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
             unit: p.unit, post: p.post, place: p.place,
             from: p.fromY + '-' + ('0' + ((p.fromQ - 1) * 3 + 1)).slice(-2),
             to: (i === 0 ? '至今' : (G.postHistory[i - 1].fromY + '-' + ('0' + ((G.postHistory[i - 1].fromQ - 1) * 3 + 1)).slice(-2))),
-            lv: p.lv, rank: D.rankNameOf(G.track.id, p.lv).name
+            lv: p.lv, rank: (ENGINE.rankTitleOf ? ENGINE.rankTitleOf(G.track.id, p.lv, p.unit, p.post).name : D.rankNameOf(G.track.id, p.lv).name)
           };
         }),
         concurrent: G.concurrent.map(function (c) { return { n: c.n, from: c.from }; }),
