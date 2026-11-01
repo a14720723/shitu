@@ -1676,6 +1676,12 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.147',
+    d: [
+      '去掉功能页顶部那张「功能 / 十个模块，点进去都能用」的标题卡片，进入功能页直接就是模块格子，页面更清爽（顺带修掉与实际模块数不符的旧文案）'
+    ]
+  },
+  {
     v: '1.9.144',
     d: [
       '术语统一：原来表示最高层级的旧词全部改为「中央」。涉及任职层级（云澜国·中央）、公文落款、号牌配发单位（中央机关事务管理局）、组织人事部门、住房（中央首长寓所）、特权（中央待遇）以及所有事件与提示文案'
@@ -1971,7 +1977,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.146.1101';
+  var VERSION = '1.9.147.1101';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -17233,7 +17239,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   ];
   function renderFn() {
     var G = g(), h = topbar(G);
-    h += '<div class="pad"><div class="card"><div class="nm">功能</div><div class="hint">十个模块，点进去都能用。</div></div>';
+    h += '<div class="pad">';
     h += '<div class="grid">' + FN.map(function (f) {
       return '<div class="fcell" onclick="APP.go(\'fn\',\'' + f.id + '\')">' +
         '<span class="fic">' + ic(f.k) + '</span>' +
