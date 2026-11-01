@@ -1676,6 +1676,15 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.160',
+    d: [
+      '中央领导车牌改为按现实权力排序的固定号：国家主席京A·00001、国务院总理00002、中共中央总书记00003、中央军委主席00004、全国人大常委会委员长00005、全国政协主席00006',
+      '副国级依次排后：国家副主席00007、中央军委副主席00008、国务委员00009、全国人大常委会副委员长00010、全国政协副主席00011',
+      '职务变了车牌也跟着换（原来只认级别，同级别内换岗不换牌），国家领导人的号牌与职务严格对应；非国家领导人的中央岗位仍按号段随机',
+      '用车卡片上会标明这个号是哪种职务的固定号，例如「京A·00001（国家主席 固定号）」'
+    ]
+  },
+  {
     v: '1.9.156',
     d: [
       '修复车牌不随晋升更换：原来只在第一次配车时生成一次，越往后升官号牌还停在当年那个大号（省级干部却挂着一百多号）。现在每次晋升都会换发新牌，级别变了号就变',
@@ -2005,7 +2014,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.157.1101';
+  var VERSION = '1.9.161.1101';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -4264,8 +4273,59 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     while (s.length < 5) s = '0' + s;
     return p + letter + '·' + s;
   }
-  /* 中央机关号牌：不带地方码，号段更小（级别越高号越小） */
-  function genCentralPlate(lo, hi) {
+  /* ============================================================
+   *  中央领导号牌：按现实权力排序，一人一号，固定不变
+   *  京A·00001 国家主席 → 00002 国务院总理 → … → 人大、政协排在其后
+   * ============================================================ */
+  var CENTRAL_PLATE = [
+    /* --- 正国级（第 18 级）--- */
+    { n: 1, unit: '云澜国', post: '国家主席', rank: '国家主席' },
+    { n: 2, unit: '国务院', post: '总理', rank: '国务院总理' },
+    { n: 3, unit: '中共中央', post: '总书记', rank: '中共中央总书记' },
+    { n: 4, unit: '中央军委', post: '主席', rank: '中央军委主席' },
+    { n: 5, unit: '全国人民代表大会常务委员会', post: '委员长', rank: '全国人大常委会委员长' },
+    { n: 6, unit: '中国人民政治协商会议全国委员会', post: '主席', rank: '全国政协主席' },
+    /* --- 副国级（第 17 级）--- */
+    { n: 7, unit: '云澜国', post: '国家副主席', rank: '国家副主席' },
+    { n: 8, unit: '中央军委', post: '副主席', rank: '中央军委副主席' },
+    { n: 9, unit: '国务院', post: '国务委员', rank: '国务委员' },
+    { n: 10, unit: '全国人民代表大会常务委员会', post: '副委员长', rank: '全国人大常委会副委员长' },
+    { n: 11, unit: '中国人民政治协商会议全国委员会', post: '副主席', rank: '全国政协副主席' }
+  ];
+  /* 按单位+职务查出固定号：查不到返回 0 */
+  function centralPlateNo(unit, post) {
+    var u = String(unit || ''), p2 = String(post || '');
+    var i, c;
+    for (i = 0; i < CENTRAL_PLATE.length; i++) {
+      c = CENTRAL_PLATE[i];
+      if (c.unit === u && c.post === p2) return c.n;
+    }
+    /* 单位对但职务写法略有出入时，退一步只比职务 */
+    for (i = 0; i < CENTRAL_PLATE.length; i++) {
+      if (CENTRAL_PLATE[i].post === p2) return CENTRAL_PLATE[i].n;
+    }
+    return 0;
+  }
+  function centralPlateRank(unit, post) {
+    var u = String(unit || ''), p2 = String(post || '');
+    for (var i = 0; i < CENTRAL_PLATE.length; i++) {
+      var c = CENTRAL_PLATE[i];
+      if (c.unit === u && c.post === p2) return c.rank;
+    }
+    for (var j = 0; j < CENTRAL_PLATE.length; j++) {
+      if (CENTRAL_PLATE[j].post === p2) return CENTRAL_PLATE[j].rank;
+    }
+    return '';
+  }
+  function pad5(n) {
+    var s2 = String(n);
+    while (s2.length < 5) s2 = '0' + s2;
+    return s2;
+  }
+  /* 中央机关号牌：国家领导人用固定号，其余按号段 */
+  function genCentralPlate(lo, hi, unit, post) {
+    var fixed = centralPlateNo(unit, post);
+    if (fixed > 0) return '京A·' + pad5(fixed);
     var num = lo + Math.floor(Math.random() * Math.max(1, hi - lo + 1));
     var s = String(num);
     while (s.length < 5) s = '0' + s;
@@ -5278,6 +5338,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     domainOfUnit: domainOfUnit, domainOfEvent: domainOfEvent,
     PRIVILEGES: PRIVILEGES, privilegesOf: privilegesOf, nextPrivilege: nextPrivilege,
     genOfficialPlate: genOfficialPlate, genCentralPlate: genCentralPlate,
+    CENTRAL_PLATE: CENTRAL_PLATE, centralPlateNo: centralPlateNo, centralPlateRank: centralPlateRank,
     genCivilPlate: genCivilPlate, plateCandidates: plateCandidates,
     ASSESS_ITEMS: ASSESS_ITEMS, ASSESS_GRADES: ASSESS_GRADES, gradeOf: gradeOf,
     URGENT: URGENT, urgentOf: urgentOf,
@@ -10307,7 +10368,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     /* 进中央后，号牌由中央机关事务管理部门统一配发，不再挂地方码 */
     g.officialPlate = car
       ? (tierNow === 'nat'
-        ? D3.genCentralPlate(car.plateLo, car.plateHi)
+        ? D3.genCentralPlate(car.plateLo, car.plateHi, g.unit, g.post)
         : D3.genOfficialPlate(a.p.n, g.pos[1] || 0, car.plateLo, car.plateHi))
       : null;
     /* 衔级编号 */
@@ -11310,14 +11371,16 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     /* 换牌：级别变了就重新配发（含进中央改京A），并记录当前所属级别 */
     var _tierNat = (tierNow === 'nat');
     if (car) {
+      /* 级别、层级或职务变了都要换牌（国家领导人是按职务配固定号的） */
       var needNew = !g.officialPlate || g.plateLv !== g.lv ||
-        (!!g.plateNat !== _tierNat);
+        (!!g.plateNat !== _tierNat) || g.platePost !== (g.unit + '/' + g.post);
       if (needNew) {
         g.officialPlate = _tierNat
-          ? D3.genCentralPlate(car.plateLo, car.plateHi)
+          ? D3.genCentralPlate(car.plateLo, car.plateHi, g.unit, g.post)
           : D3.genOfficialPlate(a.p.n, cityIdx, car.plateLo, car.plateHi);
         g.plateLv = g.lv;
         g.plateNat = _tierNat;
+        g.platePost = g.unit + '/' + g.post;
       }
     } else {
       g.officialPlate = null;
@@ -11337,12 +11400,14 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var car = D3.carOf(g.lv);
     var _tier = D.tierOf(g.lv);
     /* 级别或层级变了，车牌要换发 */
-    if (car && (!g.officialPlate || g.plateLv !== g.lv || (!!g.plateNat !== (_tier === 'nat')))) {
+    if (car && (!g.officialPlate || g.plateLv !== g.lv ||
+      (!!g.plateNat !== (_tier === 'nat')) || g.platePost !== (g.unit + '/' + g.post))) {
       g.officialPlate = (_tier === 'nat')
-        ? D3.genCentralPlate(car.plateLo, car.plateHi)
+        ? D3.genCentralPlate(car.plateLo, car.plateHi, g.unit, g.post)
         : D3.genOfficialPlate(a.p.n, g.pos[1] || 0, car.plateLo, car.plateHi);
       g.plateLv = g.lv;
       g.plateNat = (_tier === 'nat');
+      g.platePost = g.unit + '/' + g.post;
     }
     if (!car) { g.officialPlate = null; g.plateLv = 0; g.plateNat = false; }
     g.officialHouse = D3.houseOf(g.lv);
@@ -18818,11 +18883,18 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         '<div class="hint">' + esc(hb.d) + '　自购房要填进个人有关事项报告，瞒报会被抽查。</div></div>';
     }
 
-    /* 号段区间说明：按级别给出本级的号段范围 */
-    function plateRangeOf(lv, tier) {
+    /* 号段区间说明：按级别给出本级的号段范围；中央领导显示固定名次 */
+    function plateRangeOf(lv, tier, unit, post) {
       var c = D3.carOf(lv);
       if (!c) return '未配备';
-      if (tier === 'nat') return '京A·' + pad5(c.plateLo) + ' — 京A·' + pad5(c.plateHi);
+      if (tier === 'nat') {
+        var no = D3.centralPlateNo(unit, post);
+        if (no > 0) {
+          var rk = D3.centralPlateRank(unit, post);
+          return '京A·' + pad5(no) + '（' + (rk || '国家领导') + ' 固定号）';
+        }
+        return '京A·' + pad5(c.plateLo) + ' — 京A·' + pad5(c.plateHi);
+      }
       return pad5(c.plateLo) + ' — ' + pad5(c.plateHi);
     }
     function pad5(n) {
@@ -18836,7 +18908,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     if (bf.car) {
       h += '<div class="payrow"><span>车型</span><b>' + esc(bf.carName) + '</b></div>' +
         '<div class="payrow"><span>号牌</span><b><span class="plate" style="margin:0">' + esc(bf.plate) + '</span></b></div>' +
-        '<div class="payrow"><span>号段区间</span><b>' + esc(plateRangeOf(G.lv, tierNow)) + '</b></div>' +
+        '<div class="payrow"><span>号段区间</span><b>' + esc(plateRangeOf(G.lv, tierNow, G.unit, G.post)) + '</b></div>' +
         '<div class="payrow"><span>配发单位</span><b>' + (tierNow === 'nat' ? '中央机关事务管理局' : (a0.p.n + '机关事务管理局')) + '</b></div>' +
         '<div class="payrow"><span>驾驶员</span><b>' + (G.lv >= 13 ? '专职驾驶员' : (G.lv >= 9 ? '相对固定驾驶员' : '单位统一调度')) + '</b></div>' +
         '<div class="payrow"><span>使用范围</span><b>仅限公务</b></div>' +
