@@ -1676,6 +1676,27 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.156',
+    d: [
+      '修复车牌不随晋升更换：原来只在第一次配车时生成一次，越往后升官号牌还停在当年那个大号（省级干部却挂着一百多号）。现在每次晋升都会换发新牌，级别变了号就变',
+      '号段改为一级一档、严格递减：7 级 3001-6000 → 10 级 801-1200 → 13 级 181-300 → 15 级 51-100 → 16 级（省长/省委书记）11-50 → 17 级京A·00005-00020 → 18 级京A·00002-00004 → 19 级起京A·00001',
+      '首都定为京州市：中央机关设在京州市，中央号牌由「中A」改「京A」字头，住房坐落中央时显示京州市',
+      '住房信息细化：新增户型格局（按面积推算，如 180㎡ 显示「独栋两层（带书房、会客室）」）、院落/小区名（省级干部住宅院、京州市·中央首长寓所），坐落精确到「省·市」或「市·区县」，车改补贴从住房卡移到用车卡',
+      '公务用车卡片新增：号段区间、驾驶员（13 级起专职驾驶员）、车改补贴',
+      '修复特权「警卫与安全保卫」只写不做：第 15 级起被核查、被举报的概率真的下降两成，第 17 级中央待遇再降一成半；专机专列（16 级）的健康损耗减免在页面上一并写清楚'
+    ]
+  },
+  {
+    v: '1.9.152',
+    d: [
+      '公务车牌号段重排：级别越高号越小，省长（正部·第 16 级）拿到全省最靠前的二十个号之一（如 00019），不再是 00124 这种号',
+      '修复 17 级以上仍挂地方车牌：副国级起进中央序列，号牌改为「中A」字头（中A·00008）',
+      '住房增加「房屋配套」明细：按级别列出车库、传达室、安保、驾驶员与秘书用房、专职服务员、厨师、医疗保健室、警卫哨位等，级别越高配套越全',
+      '修复级别特权的两处错误：国家领导人待遇原本要求第 19 级（各线天花板最高只有 18 级，永远拿不到），现改为第 18 级；中央待遇原本要求第 18 级，实际第 17 级副国级就进中央序列，现改为第 17 级',
+      '级别特权页新增「本线天花板」提示：不同线的顶点不同（政务 18、国企 16、武警 16 等），高于本线天花板的特权会标为「本线不可达」，不再显示无法实现的「还差 N 级」'
+    ]
+  },
+  {
     v: '1.9.148',
     d: [
       '修复办公室事件选项空白：新加的厅局级/省部级事务误把选项文本写成了标题同名字段，导致按钮上一片空白（如「全省养老服务体系的建设」的三个选项都看不见字）。现已全部改为正确的选项文本字段',
@@ -1984,7 +2005,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.150.1101';
+  var VERSION = '1.9.157.1101';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -2564,6 +2585,9 @@ window.CHANGELOG = [
     { t: '城关中心型', d: '县城所在镇，事多、会多、领导也多。', e: { nw: 3, pr: 2, he: -3, mt: 2 } }
   ];
 
+  /* 首都：中央机关都设在京州市，中央号牌以「京A」开头 */
+  var CAPITAL = '京州市';
+
   var REGION = {
     built: false, provinces: [],
     build: function () {
@@ -2604,10 +2628,10 @@ window.CHANGELOG = [
       var a = this.at(pos);
       return a.p.n + '＞' + a.c.n + '＞' + a.u.n + '＞' + a.t.n;
     },
-    /* 按任职层级显示路径：在省里任职就只显示到省，进中央就显示「云澜国·中央」 */
+    /* 按任职层级显示路径：在省里任职就只显示到省，进中央就显示「云澜国·京州市」 */
     pathAt: function (pos, tier) {
       var a = this.at(pos);
-      if (tier === 'nat') return '云澜国·中央';
+      if (tier === 'nat') return '云澜国·' + CAPITAL;
       if (tier === 'prov') return a.p.n;
       if (tier === 'city') return a.p.n + '＞' + a.c.n;
       if (tier === 'county') return a.p.n + '＞' + a.c.n + '＞' + a.u.n;
@@ -3753,6 +3777,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     SPOUSE_CHAR: SPOUSE_CHAR, SPOUSE_EDU: SPOUSE_EDU, SPOUSE_JOB: SPOUSE_JOB,
     CHILD_TRAIN: CHILD_TRAIN, CHILD_NAME_M: CHILD_NAME_M, CHILD_NAME_F: CHILD_NAME_F,
     HEALTH_OPS: HEALTH_OPS, STUDY_OPS: STUDY_OPS, FIN_OPS: FIN_OPS,
+    CAPITAL: CAPITAL,
     NPC_KINDS: NPC_KINDS, ENDINGS: ENDINGS
   };
 })(window);
@@ -4176,15 +4201,24 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* ---------------- 一、公务周转房（按级别） ---------------- */
   var OFFICIAL_HOUSE = [
     { min: 1, max: 2, area: 45, n: '单位周转房（单间）', d: '一室一厅的老楼，走廊尽头公用厨房。' },
-    { min: 3, max: 4, area: 55, n: '单位周转房（小套）', d: '两室一厅，阳台朝北，冬天有点冷。' },
-    { min: 5, max: 6, area: 65, n: '单位周转房（标准套）', d: '两室两厅，家具是单位统一配的旧款。' },
-    { min: 7, max: 8, area: 80, n: '机关周转房（科级）', d: '三室一厅，小区有门卫，孩子能在楼下骑车。' },
-    { min: 9, max: 10, area: 95, n: '机关周转房（处级）', d: '三室两厅，独立车位，物业每周来打扫两次。' },
-    { min: 11, max: 12, area: 115, n: '干部周转房（厅级）', d: '四室两厅，院子里有两棵梧桐。' },
-    { min: 13, max: 14, area: 140, n: '省级干部住房', d: '独栋小楼带院子，门口有传达室。' },
-    { min: 15, max: 16, area: 180, n: '省部级干部住房', d: '两层小楼，司机和秘书住在前排平房。' },
-    { min: 17, max: 18, area: 220, n: '国家级干部住房', d: '院子里有警卫哨位，你很少在家吃饭。' },
-    { min: 19, max: 20, area: 280, n: '中央首长寓所', d: '房本上没有你的名字，钥匙也不在你手里。' }
+    { min: 3, max: 4, area: 55, n: '单位周转房（小套）', d: '两室一厅，阳台朝北，冬天有点冷。',
+      fac: ['家具由单位配发', '公共卫生间热水限时', '无独立车位', '无门卫，快递放门口'] },
+    { min: 5, max: 6, area: 65, n: '单位周转房（标准套）', d: '两室两厅，家具是单位统一配的旧款。',
+      fac: ['单位配基本家具家电', '院子有门卫', '自行车棚', '无独立车位'] },
+    { min: 7, max: 8, area: 80, n: '机关周转房（科级）', d: '三室一厅，小区有门卫，孩子能在楼下骑车。',
+      fac: ['独立车位 1 个', '小区门卫 24 小时', '单位食堂就餐', '物业每周保洁 1 次'] },
+    { min: 9, max: 10, area: 95, n: '机关周转房（处级）', d: '三室两厅，独立车位，物业每周来打扫两次。',
+      fac: ['独立车位 1 个', '传达室收发', '单位食堂就餐', '物业每周保洁 2 次', '配备联络员协助日程'] },
+    { min: 11, max: 12, area: 115, n: '干部周转房（厅级）', d: '四室两厅，院子里有两棵梧桐。',
+      fac: ['独立车库 1 间', '门卫与传达室', '专职驾驶员待命', '物业每周保洁 2 次', '干部病房就医'] },
+    { min: 13, max: 14, area: 140, n: '省级干部住房', d: '独栋小楼带院子，门口有传达室。',
+      fac: ['独栋带院', '车库 2 间', '传达室 24 小时', '专职驾驶员', '家政保洁每周 2 次', '省级干部就医通道'] },
+    { min: 15, max: 16, area: 180, n: '省部级干部住房', d: '两层小楼，司机和秘书住在前排平房。',
+      fac: ['两层独栋带院', '车库 2 间', '传达室与 24 小时安保', '驾驶员与秘书用房', '专职服务员', '干部食堂或在家就餐', '省部级医疗保健'] },
+    { min: 17, max: 18, area: 220, n: '国家级干部住房', d: '院子里有警卫哨位，你很少在家吃饭。',
+      fac: ['独栋带院', '警卫哨位', '车库 3 间', '驾驶员、秘书、警卫用房', '专职厨师与服务人员', '会客厅与小型会议室', '医疗保健室', '国家领导人医疗待遇'] },
+    { min: 19, max: 20, area: 280, n: '中央首长寓所', d: '房本上没有你的名字，钥匙也不在你手里。',
+      fac: ['独栋寓所', '警卫与安防全套', '车库与专用车道', '工作人员用房', '厨师与服务团队', '会客与会议区', '专职医疗小组', '各项待遇顶格'] }
   ];
 
   /* ---------------- 二、公务交通补贴（元/月，按级别） ---------------- */
@@ -4202,14 +4236,22 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   ];
 
   /* ---------------- 三、公务车（级别越高，车牌号越小） ---------------- */
+  /* 号段：级别越高，号越小。省长（正部·16 级）拿到的是全省最靠前的那几个号 */
+  /* 一级一档，号段逐级收紧：级别越高，号越小，绝不反弹 */
   var OFFICIAL_CAR = [
-    { min: 7, max: 8, n: '保障用车·大众帕萨特', plateLo: 2001, plateHi: 5000, d: '单位统一调度，用之前要在群里报备。' },
-    { min: 9, max: 10, n: '公务用车·大众迈腾', plateLo: 901, plateHi: 2000, d: '相对固定用车，司机老周认得你家门口。' },
-    { min: 11, max: 12, n: '公务用车·奥迪 A6L', plateLo: 401, plateHi: 900, d: '车号段在市直机关里算靠前的。' },
-    { min: 13, max: 14, n: '相对固定用车·奥迪 A6L（高配）', plateLo: 151, plateHi: 400, d: '省里统一号段，过一个路口都有人认得。' },
-    { min: 15, max: 16, n: '专用车·奥迪 A8L', plateLo: 61, plateHi: 150, d: '车号三位数，进机关大院不用停车。' },
-    { min: 17, max: 18, n: '专用车·红旗 H9', plateLo: 21, plateHi: 60, d: '两位数的号，司机比你更清楚规矩。' },
-    { min: 19, max: 20, n: '专用车·红旗 L5', plateLo: 1, plateHi: 20, d: '个位数。这条路，只为你清过一次道。' }
+    { min: 7, max: 7, n: '保障用车·大众帕萨特', plateLo: 3001, plateHi: 6000, d: '号段四位数，单位统一调度，用之前要在群里报备。' },
+    { min: 8, max: 8, n: '保障用车·大众帕萨特', plateLo: 2001, plateHi: 3000, d: '号段仍四位数，但已经能固定叫到车了。' },
+    { min: 9, max: 9, n: '公务用车·大众迈腾', plateLo: 1201, plateHi: 2000, d: '号段三位数起步，相对固定用车。' },
+    { min: 10, max: 10, n: '公务用车·大众迈腾', plateLo: 801, plateHi: 1200, d: '号段进了八百以内，司机老周认得你家门口。' },
+    { min: 11, max: 11, n: '公务用车·奥迪 A6L', plateLo: 501, plateHi: 800, d: '号段在市直机关里算靠前的。' },
+    { min: 12, max: 12, n: '公务用车·奥迪 A6L', plateLo: 301, plateHi: 500, d: '号段三百上下，出门前不用再打电话要车。' },
+    { min: 13, max: 13, n: '相对固定用车·奥迪 A6L（高配）', plateLo: 181, plateHi: 300, d: '号段进两百以内，过一个路口都有人认得。' },
+    { min: 14, max: 14, n: '相对固定用车·奥迪 A6L（高配）', plateLo: 101, plateHi: 180, d: '全省号段一百出头，进机关大院不用停车。' },
+    { min: 15, max: 15, n: '专用车·奥迪 A8L（副部级）', plateLo: 51, plateHi: 100, d: '副部级号段两位数，门岗远远就抬杆。' },
+    { min: 16, max: 16, n: '专用车·奥迪 A8L（省部级正职）', plateLo: 11, plateHi: 50, d: '省长、省委书记的号，全省最靠前的五十个号之一。' },
+    { min: 17, max: 17, n: '专用车·红旗 H9（中央序列）', plateLo: 5, plateHi: 20, d: '中央序列号牌（京A），两位数，司机比你更清楚规矩。' },
+    { min: 18, max: 18, n: '专用车·红旗 H9（中央序列）', plateLo: 2, plateHi: 4, d: '京A 个位段，这一排车里你的号最小。' },
+    { min: 19, max: 20, n: '专用车·红旗 L5', plateLo: 1, plateHi: 1, d: '京A·00001。这条路，只为你清过一次道。' }
   ];
 
   /* 生成公务车牌：省简称 + 地区字母 · 五位数字 */
@@ -4227,7 +4269,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var num = lo + Math.floor(Math.random() * Math.max(1, hi - lo + 1));
     var s = String(num);
     while (s.length < 5) s = '0' + s;
-    return '中A·' + s;
+    return '京A·' + s;
   }
   /* 民用车牌：省简称 + 字母 · 数字字母混合（自购车辆选号用） */
   function genCivilPlate(provName, cityIdx) {
@@ -4274,15 +4316,15 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
    * ============================================================ */
   var PRIVILEGES = [
     { id: 'sec', min: 9, n: '配备联络员', d: '有专人帮你安排日程、接转电话。', e: '行动力上限 +1' },
-    { id: 'car', min: 7, n: '公务用车', d: '机关事务管理部门配车，号牌越小越资深。', e: '通勤不花钱' },
+    { id: 'car', min: 7, n: '公务用车', d: '机关事务管理部门配车，级别越高号越小，进中央改京A 字头。', e: '通勤不花钱' },
     { id: 'house', min: 7, n: '周转住房', d: '按级别配周转房，级别越高面积越大。', e: '不用自己买房' },
     { id: 'med', min: 11, n: '干部保健', d: '每年一次定点医院体检，住院走干部病房。', e: '健康下降减缓' },
     { id: 'sec2', min: 13, n: '专职秘书', d: '配专职秘书，材料有人起草。', e: '行动力上限 +1' },
-    { id: 'guard', min: 15, n: '警卫与安全保卫', d: '住地有安保，出行有随行。', e: '廉政风险更难被核查' },
+    { id: 'guard', min: 15, n: '警卫与安全保卫', d: '住地有安保，出行有随行。', e: '被核查、被举报的概率下降两成' },
     { id: 'reloc', min: 15, n: '家属随任', d: '配偶与子女的工作、入学由组织协调安排。', e: '亲情下滑减半' },
-    { id: 'train', min: 16, n: '专机专列待遇', d: '出差可乘公务舱、软卧包厢。', e: '出差不再掉健康' },
-    { id: 'central', min: 18, n: '中央待遇', d: '进中央序列，住中央公寓，配专车与警卫。', e: '单位与号牌改由中央配发' },
-    { id: 'top', min: 19, n: '国家领导人待遇', d: '住房、医疗、安保全部按最高标准。', e: '各项待遇顶格' }
+    { id: 'train', min: 16, n: '专机专列待遇', d: '出差可乘公务舱、软卧包厢。', e: '健康损耗再减一成' },
+    { id: 'central', min: 17, n: '中央待遇', d: '第 17 级（副国级）起进中央序列，住京州市的中央公寓，配专车与警卫。', e: '单位与号牌改由中央配发（京A 字头）' },
+    { id: 'top', min: 18, n: '国家领导人待遇', d: '住房、医疗、安保全部按最高标准。', e: '各项待遇顶格' }
   ];
   function privilegesOf(lv) {
     var out = [];
@@ -11264,10 +11306,24 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var h = D3.houseOf(g.lv);
     var car = D3.carOf(g.lv);
     var cityIdx = g.pos[1] || 0;
-    if (!g.officialPlate && car) {
-      g.officialPlate = D3.genOfficialPlate(a.p.n, cityIdx, car.plateLo, car.plateHi);
+    var tierNow = D.tierOf(g.lv);
+    /* 换牌：级别变了就重新配发（含进中央改京A），并记录当前所属级别 */
+    var _tierNat = (tierNow === 'nat');
+    if (car) {
+      var needNew = !g.officialPlate || g.plateLv !== g.lv ||
+        (!!g.plateNat !== _tierNat);
+      if (needNew) {
+        g.officialPlate = _tierNat
+          ? D3.genCentralPlate(car.plateLo, car.plateHi)
+          : D3.genOfficialPlate(a.p.n, cityIdx, car.plateLo, car.plateHi);
+        g.plateLv = g.lv;
+        g.plateNat = _tierNat;
+      }
+    } else {
+      g.officialPlate = null;
+      g.plateLv = 0;
+      g.plateNat = false;
     }
-    if (!car) g.officialPlate = null;
     return {
       house: h, area: h.area, houseName: h.n, houseDesc: h.d,
       transit: D3.transitOf(g.lv),
@@ -11279,8 +11335,16 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   function refreshBenefits(g) {
     var a = D.REGION.at(g.pos);
     var car = D3.carOf(g.lv);
-    if (car) g.officialPlate = D3.genOfficialPlate(a.p.n, g.pos[1] || 0, car.plateLo, car.plateHi);
-    else g.officialPlate = null;
+    var _tier = D.tierOf(g.lv);
+    /* 级别或层级变了，车牌要换发 */
+    if (car && (!g.officialPlate || g.plateLv !== g.lv || (!!g.plateNat !== (_tier === 'nat')))) {
+      g.officialPlate = (_tier === 'nat')
+        ? D3.genCentralPlate(car.plateLo, car.plateHi)
+        : D3.genOfficialPlate(a.p.n, g.pos[1] || 0, car.plateLo, car.plateHi);
+      g.plateLv = g.lv;
+      g.plateNat = (_tier === 'nat');
+    }
+    if (!car) { g.officialPlate = null; g.plateLv = 0; g.plateNat = false; }
     g.officialHouse = D3.houseOf(g.lv);
     g.transitSub = D3.transitOf(g.lv);
   }
@@ -11443,6 +11507,9 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     if (g.talent.id === 'wz') pRisk *= 0.6;
     if (g.track.id === 'zf' || g.track.id === 'dw') pRisk *= 0.85;
     if (g.script.id === 'zf') pRisk *= 0.75;
+    /* 特权：第 15 级起有警卫与安全保卫，被核查、被举报的概率下降 */
+    if (g.lv >= 15) pRisk *= 0.8;
+    if (g.lv >= 17) pRisk *= 0.85;   /* 中央待遇，层级更高更难被核查 */
     if (g.era.id === 'zd') pRisk *= 1.6;
     pRisk = clamp(pRisk, 0, 0.20);
     if (chance(pRisk)) {
@@ -17478,9 +17545,14 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var G = g(), h = '';
     var has = D3.privilegesOf(G.lv);
     var nxt = D3.nextPrivilege(G.lv);
+    /* 本线天花板：不同线的顶点不一样，到不了的特权要标出来 */
+    var capLv = (window.TrackCap && window.TrackCap.capOf) ? window.TrackCap.capOf(G) : 20;
     h += '<div class="card"><div class="nm">级别特权　<span class="rtier">' +
       esc(EN.rankOf(G).name) + ' · 第 ' + G.lv + ' 级</span></div>' +
-      '<div class="hint">到了哪一级，就享哪一级的待遇。这些不用申请，级别到了自动有。</div></div>';
+      '<div class="hint">到了哪一级，就享哪一级的待遇。这些不用申请，级别到了自动有。</div>' +
+      '<div class="payrow"><span>本线天花板</span><b>第 ' + capLv + ' 级</b></div>' +
+      '<div class="hint">' + esc((G.track && G.track.name) || '') + '线最高到第 ' + capLv +
+      ' 级，高于这个级别的特权本线拿不到。</div></div>';
 
     h += '<div class="card"><div class="nm">当前享有 ' + has.length + ' 项</div>';
     if (!has.length) {
@@ -17495,12 +17567,17 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     }
     h += '</div>';
 
-    if (nxt) {
+    if (nxt && nxt.min <= capLv) {
       h += '<div class="card"><div class="nm">再上一级解锁</div>' +
         '<div class="li"><b>' + esc(nxt.n) + '</b><span class="tag">第 ' + nxt.min + ' 级</span>' +
         '<div class="ds">' + esc(nxt.d) + '</div>' +
         '<div class="ds" style="color:#4f7a54">' + esc(nxt.e) + '</div></div>' +
         '<div class="hint">还差 ' + (nxt.min - G.lv) + ' 级。</div></div>';
+    } else if (nxt) {
+      h += '<div class="card"><div class="nm">再上一级解锁</div>' +
+        '<div class="hint">下一项待遇要第 ' + nxt.min + ' 级，但' +
+        esc((G.track && G.track.name) || '本') + '线天花板是第 ' + capLv +
+        ' 级，本线拿不到。想走更高，只有通过遴选或平级交流换线。</div></div>';
     } else {
       h += '<div class="card"><div class="hint">已经到顶了，所有待遇都享全了。</div></div>';
     }
@@ -17508,8 +17585,9 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     h += '<div class="card"><div class="nm">全部特权一览</div>' +
       D3.PRIVILEGES.map(function (p) {
         var on = G.lv >= p.min;
+        var unreach = p.min > capLv;
         return '<div class="li ' + (on ? '' : 'dim') + '"><b>' + esc(p.n) + '</b>' +
-          '<span class="tag">' + (on ? '已享' : '第 ' + p.min + ' 级') + '</span>' +
+          '<span class="tag">' + (on ? '已享' : (unreach ? '本线不可达' : '第 ' + p.min + ' 级')) + '</span>' +
           '<div class="ds">' + esc(p.e) + '</div></div>';
       }).join('') + '</div>';
     return h;
@@ -18671,17 +18749,56 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var bf = EN.benefitsOf(G);
     var a0 = D.REGION.at(G.pos);
     var tierNow = D.tierOf(G.lv);
-    var housePlace = tierNow === 'nat' ? '中央' : (tierNow === 'prov' ? a0.p.n : (tierNow === 'city' ? a0.c.n : (tierNow === 'county' ? a0.u.n : a0.t.n)));
+    var housePlace = tierNow === 'nat' ? (D.CAPITAL || '京州市')
+      : (tierNow === 'prov' ? (a0.p.n + '·' + a0.c.n)
+        : (tierNow === 'city' ? (a0.p.n + '·' + a0.c.n)
+          : (tierNow === 'county' ? (a0.c.n + '·' + a0.u.n) : (a0.u.n + '·' + a0.t.n))));
+    var houseAddr = tierNow === 'nat' ? (D.CAPITAL || '京州市') : housePlace;
     /* ---- 住房：把面积、坐落、产权、配售时间都摊开 ---- */
     h += '<div class="card"><div class="sect2">住房情况<span class="rtier">' + esc(EN.rankOf(G).real) + '</span></div>' +
       '<div class="payrow"><span>周转住房（配售）</span><b>' + esc(bf.houseName) + '</b></div>' +
       '<div class="payrow"><span>建筑面积</span><b>' + bf.area + ' ㎡</b></div>' +
-      '<div class="payrow"><span>坐落</span><b>' + esc(housePlace) + '</b></div>' +
+      '<div class="payrow"><span>户型格局</span><b>' + esc(houseLayout(bf.area)) + '</b></div>' +
+      '<div class="payrow"><span>坐落</span><b>' + esc(houseAddr) + '</b></div>' +
+      '<div class="payrow"><span>院落/小区</span><b>' + esc(houseCourtOf(G.lv, tierNow)) + '</b></div>' +
       '<div class="payrow"><span>产权性质</span><b>单位周转房 · 只有使用权</b></div>' +
       '<div class="payrow"><span>配售依据</span><b>现任' + esc(EN.rankOf(G).name) + '</b></div>' +
       '<div class="payrow"><span>个人出资</span><b>0 元（组织配售）</b></div>' +
-      '<div class="payrow"><span>月交通补贴</span><b>' + bf.transit + ' 元</b></div>' +
-      '<div class="hint">' + esc(bf.houseDesc) + '　调离或退休时要腾退，不能带走。</div></div>';
+      '<div class="payrow"><span>月物业与能耗</span><b>由单位承担</b></div>' +
+      '<div class="hint">' + esc(bf.houseDesc) + '　调离或退休时要腾退，不能带走。</div>' +
+      '<div class="sect2" style="margin-top:8px">房屋配套</div>' +
+      ((bf.house && bf.house.fac && bf.house.fac.length)
+        ? bf.house.fac.map(function (f) {
+          return '<div class="li" style="padding:4px 0"><span>· ' + esc(f) + '</span></div>';
+        }).join('')
+        : '<div class="hint">按级别统一配发，暂无额外配套。</div>') +
+      '</div>';
+
+    /* 户型格局按面积推算 */
+    function houseLayout(area) {
+      var a = area || 0;
+      if (a <= 45) return '一室一厅';
+      if (a <= 65) return '两室一厅';
+      if (a <= 95) return '三室一厅';
+      if (a <= 115) return '三室两厅';
+      if (a <= 140) return '四室两厅';
+      if (a <= 180) return '独栋两层（带书房、会客室）';
+      if (a <= 220) return '独栋两层（带会客厅、工作人员用房）';
+      return '独栋寓所（会客区、会议区、工作人员区）';
+    }
+    /* 院落/小区名按级别与层级 */
+    function houseCourtOf(lv, tier) {
+      var cap = D.CAPITAL || '京州市';
+      if (tier === 'nat') {
+        if (lv >= 19) return cap + '·中央首长寓所';
+        return cap + '·国家级干部院落';
+      }
+      if (lv >= 15) return '省级干部住宅院';
+      if (lv >= 13) return '省级干部宿舍楼';
+      if (lv >= 11) return '机关干部周转小区';
+      if (lv >= 9) return '机关家属院';
+      return '单位周转楼';
+    }
 
     /* ---- 自购房产 ---- */
     if (G.house > 0) {
@@ -18701,16 +18818,31 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         '<div class="hint">' + esc(hb.d) + '　自购房要填进个人有关事项报告，瞒报会被抽查。</div></div>';
     }
 
+    /* 号段区间说明：按级别给出本级的号段范围 */
+    function plateRangeOf(lv, tier) {
+      var c = D3.carOf(lv);
+      if (!c) return '未配备';
+      if (tier === 'nat') return '京A·' + pad5(c.plateLo) + ' — 京A·' + pad5(c.plateHi);
+      return pad5(c.plateLo) + ' — ' + pad5(c.plateHi);
+    }
+    function pad5(n) {
+      var s2 = String(n);
+      while (s2.length < 5) s2 = '0' + s2;
+      return s2;
+    }
+
     /* ---- 公务用车 ---- */
     h += '<div class="card"><div class="sect2">公务用车</div>';
     if (bf.car) {
       h += '<div class="payrow"><span>车型</span><b>' + esc(bf.carName) + '</b></div>' +
         '<div class="payrow"><span>号牌</span><b><span class="plate" style="margin:0">' + esc(bf.plate) + '</span></b></div>' +
+        '<div class="payrow"><span>号段区间</span><b>' + esc(plateRangeOf(G.lv, tierNow)) + '</b></div>' +
         '<div class="payrow"><span>配发单位</span><b>' + (tierNow === 'nat' ? '中央机关事务管理局' : (a0.p.n + '机关事务管理局')) + '</b></div>' +
+        '<div class="payrow"><span>驾驶员</span><b>' + (G.lv >= 13 ? '专职驾驶员' : (G.lv >= 9 ? '相对固定驾驶员' : '单位统一调度')) + '</b></div>' +
         '<div class="payrow"><span>使用范围</span><b>仅限公务</b></div>' +
-        '<div class="payrow"><span>号段</span><b>' + esc(bf.carDesc) + '</b></div>' +
-        '<div class="hint">级别越高号段越靠前（号越小）。' +
-        (tierNow === 'nat' ? '进中央后号牌改为「中A」字头，不再挂地方码。' : '') +
+        '<div class="payrow"><span>车改补贴</span><b>' + bf.transit + ' 元/月</b></div>' +
+        '<div class="hint">' + esc(bf.carDesc) + '<br>级别越高号越小，' +
+        (tierNow === 'nat' ? '进中央后号牌改「京A」字头（首都 ' + (D.CAPITAL || '京州市') + '）。' : '每一级都比上一级更靠前。') +
         '不得供家属日常使用。</div>';
     } else {
       h += '<div class="payrow"><span>状态</span><b>未配备</b></div>' +
