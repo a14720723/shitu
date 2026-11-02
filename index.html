@@ -1676,6 +1676,17 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.171',
+    d: [
+      '修复干部履历不更新：竞聘上岗时没有登记任职记录，所以升到国家主席了，履历里还停在最初的「办事员」。现在每次竞聘上岗都会写进履历',
+      '新增晋升年龄门槛：按现行干部任用条例逐级累加最低任职年龄。科员满 3 年提副科、副科满 2 年提正科……正部满 3 年提副国。35 岁当国家主席的情况不会再出现，正常节奏是 60 岁左右进中央、65 岁前后到顶',
+      '修复「副省级干部 60 岁被按正厅的规矩退二线」的错误：年龄天花板原本对所有更高一级都生效，导致升到副部后反而被永久卡住、再也升不上去。现在退二线只约束还停留在该级别的人，副部级以上不再设年龄天花板',
+      '遴选改为真正的「平台跃迁」：考上只把任职层级抬上去、级别最多 +1，不再一次跳 4 级；同时要求现任岗位干满 2~4 年才有报考资格，考上后有 8~20 个季度冷却期，不能一年一考',
+      '人脉关系补全信息：每个人现在显示级别、官阶名，以及与你的相对位置（高于你几级 / 低于你几级 / 与你同级），不再出现「你是国家主席、直属上级却还是科长」',
+      '同僚的级别会跟着你走：你升上去了，直属上级仍在你之上、同级仍围绕你、下级仍在你之下，年龄也会随级别水涨船高'
+    ]
+  },
+  {
     v: '1.9.163',
     d: [
       '修复「岗位是国家主席、官阶却写国务院总理」的自相矛盾：17 级以上的国家领导职务，官阶名现在一律跟随你实际担任的岗位。当你任云澜国国家主席时，顶部标签、个人页、住房配售依据、履历全部显示「国家主席」',
@@ -2022,7 +2033,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.164.1101';
+  var VERSION = '1.9.172.1102';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -3302,27 +3313,31 @@ window.CHANGELOG = [
   /* ============================================================
    *  三、20 级官阶（最高 正国级）
    * ============================================================ */
+  /* minAge：现实中担任该职级的最低年龄（22 岁本科毕业入仕起算）
+     按现行干部任用条例逐级累加：科员3年→副科，副科2年→正科，
+     正科3年→副处，副处2年→正处，正处3年→副厅，副厅2年→正厅，
+     正厅3年→副部，副部2年→正部，正部3年→副国，副国5年→正国 */
   var RANKS = [
-    { lv: 1, name: '书吏', real: '二级科员', pay: 9.1, need: 30, years: 1, color: '#8d99ae' },
-    { lv: 2, name: '主簿', real: '一级科员', pay: 10.5, need: 34, years: 1, color: '#8d99ae' },
-    { lv: 3, name: '司吏', real: '四级主任科员·副科级', pay: 12.3, need: 38, years: 1, color: '#7a8b99' },
-    { lv: 4, name: '副司正', real: '三级主任科员·副科级', pay: 14.3, need: 42, years: 1, color: '#6b7f8f' },
-    { lv: 5, name: '司正', real: '二级主任科员·正科级', pay: 16.5, need: 46, years: 2, color: '#5c7383' },
-    { lv: 6, name: '少尹', real: '一级主任科员·正科级', pay: 18.8, need: 49, years: 2, color: '#4f6b7a' },
-    { lv: 7, name: '参军', real: '四级调研员·副处级', pay: 21.8, need: 53, years: 2, color: '#44606e' },
-    { lv: 8, name: '别驾', real: '三级调研员·副处级', pay: 24.9, need: 57, years: 2, color: '#3a5666' },
-    { lv: 9, name: '从事', real: '二级调研员·正处级', pay: 28.6, need: 61, years: 2, color: '#30505f' },
-    { lv: 10, name: '长史', real: '一级调研员·正处级', pay: 32.5, need: 65, years: 2, color: '#8a6a2f' },
-    { lv: 11, name: '少卿', real: '二级巡视员·副厅级', pay: 37.5, need: 69, years: 2, color: '#8f6f30' },
-    { lv: 12, name: '寺卿', real: '一级巡视员·正厅级', pay: 42.7, need: 73, years: 2, color: '#96742f' },
-    { lv: 13, name: '观察使', real: '厅局级副职·副厅级', pay: 49.0, need: 84, years: 3, color: '#9c7b32' },
-    { lv: 14, name: '节度副使', real: '厅局级正职·正厅级', pay: 56.0, need: 87, years: 3, color: '#a8862f' },
-    { lv: 15, name: '节度使', real: '省部级副职·副部级', pay: 64.4, need: 90, years: 3, color: '#b8912c' },
-    { lv: 16, name: '枢密副使', real: '省部级正职·正部级', pay: 74.2, need: 92, years: 3, color: '#c39b27' },
-    { lv: 17, name: '枢密使', real: '国家级副职·副国级', pay: 85.4, need: 95, years: 3, color: '#c9a52b' },
-    { lv: 18, name: '太尉', real: '国家级副职·副国级（中央）', pay: 98.0, need: 98, years: 3, color: '#cfae2a' },
-    { lv: 19, name: '丞相', real: '国家级正职·正国级', pay: 114.8, need: 103, years: 3, color: '#d4af37' },
-    { lv: 20, name: '人民公仆', real: '正国级·人民公仆', pay: 140.0, need: 110, years: 3, color: '#e0c04a' }
+    { lv: 1, name: '书吏', real: '二级科员', pay: 9.1, need: 30, years: 1, minAge: 22, color: '#8d99ae' },
+    { lv: 2, name: '主簿', real: '一级科员', pay: 10.5, need: 34, years: 2, minAge: 24, color: '#8d99ae' },
+    { lv: 3, name: '司吏', real: '四级主任科员·副科级', pay: 12.3, need: 38, years: 3, minAge: 26, color: '#7a8b99' },
+    { lv: 4, name: '副司正', real: '三级主任科员·副科级', pay: 14.3, need: 42, years: 2, minAge: 28, color: '#6b7f8f' },
+    { lv: 5, name: '司正', real: '二级主任科员·正科级', pay: 16.5, need: 46, years: 3, minAge: 30, color: '#5c7383' },
+    { lv: 6, name: '少尹', real: '一级主任科员·正科级', pay: 18.8, need: 49, years: 3, minAge: 33, color: '#4f6b7a' },
+    { lv: 7, name: '参军', real: '四级调研员·副处级', pay: 21.8, need: 53, years: 3, minAge: 36, color: '#44606e' },
+    { lv: 8, name: '别驾', real: '三级调研员·副处级', pay: 24.9, need: 57, years: 2, minAge: 38, color: '#3a5666' },
+    { lv: 9, name: '从事', real: '二级调研员·正处级', pay: 28.6, need: 61, years: 3, minAge: 40, color: '#30505f' },
+    { lv: 10, name: '长史', real: '一级调研员·正处级', pay: 32.5, need: 65, years: 3, minAge: 43, color: '#8a6a2f' },
+    { lv: 11, name: '少卿', real: '二级巡视员·副厅级', pay: 37.5, need: 69, years: 3, minAge: 46, color: '#8f6f30' },
+    { lv: 12, name: '寺卿', real: '一级巡视员·正厅级', pay: 42.7, need: 73, years: 3, minAge: 49, color: '#96742f' },
+    { lv: 13, name: '观察使', real: '厅局级副职·副厅级', pay: 49.0, need: 84, years: 3, minAge: 46, color: '#9c7b32' },
+    { lv: 14, name: '节度副使', real: '厅局级正职·正厅级', pay: 56.0, need: 87, years: 3, minAge: 48, color: '#a8862f' },
+    { lv: 15, name: '节度使', real: '省部级副职·副部级', pay: 64.4, need: 90, years: 3, minAge: 51, color: '#b8912c' },
+    { lv: 16, name: '枢密副使', real: '省部级正职·正部级', pay: 74.2, need: 88, years: 2, minAge: 54, color: '#c39b27' },
+    { lv: 17, name: '枢密使', real: '国家级副职·副国级', pay: 85.4, need: 90, years: 2, minAge: 57, color: '#c9a52b' },
+    { lv: 18, name: '太尉', real: '国家级副职·副国级（中央）', pay: 98.0, need: 92, years: 2, minAge: 60, color: '#cfae2a' },
+    { lv: 19, name: '丞相', real: '国家级正职·正国级', pay: 114.8, need: 94, years: 2, minAge: 63, color: '#d4af37' },
+    { lv: 20, name: '人民公仆', real: '正国级·人民公仆', pay: 140.0, need: 96, years: 2, minAge: 66, color: '#e0c04a' }
   ];
 
   /* ============================================================
@@ -10756,10 +10771,11 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var a = D.REGION.at(pos);
     var ch = pick2(D3.P_CHARS);
     var trackId = g.track ? g.track.id : 'zw';
-    /* 上下级/同事的级别围绕玩家，外部的按 kind */
-    if (cat === 'lead') lv = clamp(g.lv + rint(2, 6), 1, 20);
-    else if (cat === 'peer') lv = clamp(g.lv + rint(-1, 2), 1, 20);
-    else if (cat === 'sub') lv = clamp(g.lv - rint(2, 5), 1, 20);
+    /* 上下级/同事的级别围绕玩家，外部的按 kind；gap 记下相对差，日后随玩家同步 */
+    var leadGap = 0, peerGap = 0, subGap = 0;
+    if (cat === 'lead') { leadGap = rint(2, 6); lv = clamp(g.lv + leadGap, 1, 20); }
+    else if (cat === 'peer') { peerGap = rint(-1, 2); lv = clamp(g.lv + peerGap, 1, 20); }
+    else if (cat === 'sub') { subGap = rint(2, 5); lv = clamp(g.lv - subGap, 1, 20); }
     /* 年龄与级别挂钩：级别越高年纪越大（更符合现实） */
     var age;
     if (cat === 'lead') age = clamp(28 + lv * 1.9 + rint(-3, 6), 32, 68);
@@ -10773,6 +10789,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       party: chance(0.72) ? '中共党员' : (chance(0.5) ? '民主党派' : '群众'),
       edu: pick2(D3.P_EDU),
       cat: cat, kind: k.k,
+      leadGap: leadGap, peerGap: peerGap, subGap: subGap,
       rel: clamp(k.rel + rint(-10, 15), 0, 100),
       trust: clamp(Math.round(k.rel * 0.5 + rint(-8, 12)), 0, 100),
       power: lv,
@@ -11641,6 +11658,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       if (b.he) g.he = Math.round(clamp(g.he + b.he, 0, 100));
     }
     if (g.famCd > 0) { g.famCd -= 1; if (g.famCd === 0) lines.push('姻亲背景已可再次动用'); }
+    /* 遴选冷却：考上之后要等若干季度才能再考 */
+    if (g.selectCd > 0) { g.selectCd -= 1; if (g.selectCd === 0) lines.push('遴选冷却期已满，可以再次报考'); }
 
     /* 13.6 班子关系演化：支持度缓慢回落，关系随口碑浮动 */
     if (g.committee && g.committee.members) {
@@ -11780,6 +11799,14 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var staffBlocked = g.lv >= staffCap;
     /* 年龄天花板：退居二线后不再提拔实职 */
     var lineBlocked = !!g.retiredLine;
+    /* 年龄门槛：担任下一级职务有最低年龄要求，不够年龄不能提 */
+    var nextRank = D.RANKS[Math.min(19, g.lv)];      /* 目标级别（lv+1）对应 RANKS[lv] */
+    var minAge = (g.lv + 1 <= 20) ? (D.RANKS[g.lv] ? D.RANKS[g.lv].minAge : 0) : 0;
+    var ageBlocked = (minAge > 0) && (g.age < minAge);
+    if (ageBlocked && !staffBlocked && !lineBlocked) {
+      lines.push('年龄不够：升任' + (D.RANKS[g.lv] ? D.RANKS[g.lv].real : '') +
+        '至少要到 ' + minAge + ' 岁，你现在 ' + g.age + ' 岁');
+    }
 
     if (staffBlocked) {
       lines.push('身份限制：' + ((global.Power && global.Power.staffLimitTxt) ? global.Power.staffLimitTxt(g) : '') +
@@ -11789,7 +11816,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     }
 
     /* 副科（第 3 级）以上：不再自动定岗，先开「任职方向选择」由玩家竞聘 */
-    var postingReady = (!staffBlocked && !lineBlocked && g.quartersInRank >= needQuarters && score >= R.need);
+    var postingReady = (!staffBlocked && !lineBlocked && !ageBlocked && g.quartersInRank >= needQuarters && score >= R.need);
     if (postingReady && g.lv >= 3 && global.Posting) {
       if (!g.posting || g.posting.done) {
         var op = global.Posting.openPosting(g);
@@ -11806,7 +11833,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       return { lines: lines, promoted: false, pending: true };
     }
 
-    if (!staffBlocked && !lineBlocked && g.quartersInRank >= needQuarters && score >= R.need) {
+    if (!staffBlocked && !lineBlocked && !ageBlocked && g.quartersInRank >= needQuarters && score >= R.need) {
       var oldLv = g.lv;
       g.lv += 1; g.quartersInRank = 0; g.promoteCount += 1;
       var mv = moveRegionOnPromote(g, oldLv, g.lv);
@@ -12281,9 +12308,41 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     }
   }
 
+  /* 同僚的级别要跟着你走：你升上去了，直属上级仍在你之上、下级仍在你之下。
+     否则会出现「你是国家主席，直属上级却还是个科长」的荒唐情况。 */
+  function syncStaffLevel(g) {
+    for (var i = 0; i < (g.npcs || []).length; i++) {
+      var n = g.npcs[i];
+      if (n.retired || n.removed) continue;
+      if (n.cat === 'lead') {
+        /* 上级：始终比玩家高 2~5 级，但不低于其既往最高级别 */
+        var want = clamp((g.lv || 1) + (n.leadGap || 0), 1, 20);
+        if (want > (n.lv || 1)) n.lv = want;
+        else if (want < (n.lv || 1) - 1) n.lv = Math.max(want, (n.lv || 1) - 1);
+      } else if (n.cat === 'peer') {
+        /* 同级：围绕玩家 ±2 级 */
+        var wp = clamp((g.lv || 1) + (n.peerGap || 0), 1, 20);
+        if (Math.abs(wp - (n.lv || 1)) > 2) n.lv = wp;
+      } else if (n.cat === 'sub') {
+        /* 下级：比玩家低 2~5 级，且不超过玩家 */
+        var ws = clamp((g.lv || 1) - (n.subGap || 0), 1, 20);
+        if (ws > (n.lv || 1)) n.lv = ws;
+        if ((n.lv || 1) > (g.lv || 1)) n.lv = Math.max(1, (g.lv || 1) - 1);
+      }
+      if (n.lv != null) n.power = n.lv;
+      /* 官阶名跟随各自岗位 */
+      if (n.unit || n.post) {
+        n.rankName = rankTitleOf(g.track ? g.track.id : 'zw', n.lv, n.unit, n.post).name;
+      }
+      /* 年龄随级别水涨船高（级别高了年纪不可能太小） */
+      var minA = (D.RANKS[Math.max(0, Math.min(19, (n.lv || 1) - 1))] || {}).minAge || 22;
+      if ((n.age || 0) < minA) n.age = clamp(minA + rint(0, 4), 22, 70);
+    }
+  }
   function npcTick(g, lines) {
     if (global.Relation) global.Relation.relTick(g, lines);
     npcCareer(g, lines);
+    syncStaffLevel(g);
     for (var i = 0; i < g.npcs.length; i++) {
       var n = g.npcs[i];
       n.rel = Math.round(clamp(n.rel - 0.8, 0, 100));
@@ -15494,20 +15553,26 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     return out;
   }
   /* 年龄天花板 */
-  var AGE_CEIL = {
-    3: 45,   /* 副科 */
-    5: 45,   /* 正科（乡镇正职一般不超45） */
-    7: 52,   /* 副处 */
-    9: 55,   /* 正处，55岁左右退二线 */
-    11: 57,  /* 副厅 */
-    13: 60   /* 正厅 */
-  };
+  /* 年龄天花板：含义是「还停留在这个级别，到这个年龄就要退居二线」。
+     注意只约束本级别区间——已经升上去的（如副部级以上）不再受低一级的限制，
+     否则会出现「副省级干部 60 岁被按正厅的规矩退二线、永远升不上去」的荒唐结果。 */
+  var AGE_CEIL_RANGE = [
+    { lo: 3, hi: 4, ceil: 45 },    /* 副科：乡镇正职一般不超 45 */
+    { lo: 5, hi: 6, ceil: 48 },    /* 正科 */
+    { lo: 7, hi: 8, ceil: 52 },    /* 副处 */
+    { lo: 9, hi: 10, ceil: 55 },   /* 正处，55 岁左右退二线 */
+    { lo: 11, hi: 12, ceil: 58 },  /* 副厅 */
+    { lo: 13, hi: 14, ceil: 62 }   /* 正厅 */
+    /* 第 15 级（副部级）以上不再设年龄天花板，可以一直干到退休 */
+  ];
   function ageCeilOf(g) {
     var G = g || S.g;
-    var lv = G.lv;
-    var ceil = 0;
-    for (var k in AGE_CEIL) { if (lv >= parseInt(k, 10)) ceil = AGE_CEIL[k]; }
-    return ceil || null;
+    var lv = G.lv || 1;
+    for (var i = 0; i < AGE_CEIL_RANGE.length; i++) {
+      var r = AGE_CEIL_RANGE[i];
+      if (lv >= r.lo && lv <= r.hi) return r.ceil;
+    }
+    return null;
   }
   /* 到龄退二线：转非领导职务 */
   function checkRetireLine(g) {
@@ -15552,7 +15617,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     STAFF_CAP: STAFF_CAP, STAFF_LIMIT_TXT: STAFF_LIMIT_TXT,
     staffCapOf: staffCapOf, staffLimitTxt: staffLimitTxt, canPromoteByStaff: canPromoteByStaff,
     ACTION_MINLV: ACTION_MINLV, ACTION_NAME: ACTION_NAME, gate: gate,
-    AGE_CEIL: AGE_CEIL, ageCeilOf: ageCeilOf, checkRetireLine: checkRetireLine
+    AGE_CEIL_RANGE: AGE_CEIL_RANGE, ageCeilOf: ageCeilOf, checkRetireLine: checkRetireLine
   };
 })(window);
 
@@ -16037,6 +16102,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     EN.refreshPost(G);
     /* refreshPost 会按级别重算单位职务，这里再覆盖成竞聘选定的岗位 */
     G.unit = s.unit; G.post = s.post;
+    /* 登记履历：竞聘上岗也是一次任职变动，必须写进干部履历 */
+    if (EN.pushPost) EN.pushPost(G);
     log('任职方向', '你竞聘上岗：' + s.unit + ' ' + s.post + '（' + s.lvName + '）。任地：' + s.place, 'up');
     G.posting.done = true;
     G.lastPosting = { unit: s.unit, post: s.post, place: s.place, dir: s.dir, year: G.year, q: G.q };
@@ -16325,14 +16392,17 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* ============================================================
    *  4. 遴选与跨岗调动
    * ============================================================ */
+  /* 遴选是「换平台」，不是直接跳级。
+     考上了只是把任职层级抬上去，级别最多 +1，之后仍要按年限和考核一步步提。
+     另需现任岗位干满 minYears 年，且有冷却期，不能一年一考。 */
   var SELECT_TARGET = [
-    { id: 's1', n: '县直机关', minLv: 1, toTier: 'county', need: 30, gain: 1,
+    { id: 's1', n: '县直机关', minLv: 1, toTier: 'county', need: 52, gain: 1, minYears: 2, cd: 8,
       d: '从乡镇考到县直，脱离一线。' },
-    { id: 's2', n: '市直机关', minLv: 3, toTier: 'city', need: 45, gain: 2,
+    { id: 's2', n: '市直机关', minLv: 3, toTier: 'city', need: 64, gain: 1, minYears: 3, cd: 12,
       d: '遴选到市直，平台高一层。' },
-    { id: 's3', n: '省直机关', minLv: 6, toTier: 'prov', need: 62, gain: 3,
+    { id: 's3', n: '省直机关', minLv: 6, toTier: 'prov', need: 76, gain: 1, minYears: 3, cd: 16,
       d: '考上省直，调研员到点就提。' },
-    { id: 's4', n: '中央机关', minLv: 9, toTier: 'nat', need: 80, gain: 4,
+    { id: 's4', n: '中央机关', minLv: 9, toTier: 'nat', need: 88, gain: 1, minYears: 4, cd: 20,
       d: '遴选进中央，天花板最高。' }
   ];
   /* 平台差异：省直 > 市直 > 县直 > 乡镇 */
@@ -16353,6 +16423,11 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var G = g || S.g;
     if (G.lv < 1) return { ok: false, msg: '级别不够' };
     if ((G.ap || 0) < 3) return { ok: false, msg: '行动力不足（备考需 3 点）' };
+    var left = (G.selectCd || 0);
+    if (left > 0) return { ok: false, msg: '上次遴选刚过，还要等 ' + left + ' 个季度才能再考' };
+    /* 现任岗位干满年限才能考，避免一年一跳 */
+    var yrs = G.quartersInRank != null ? G.quartersInRank / 4 : 0;
+    if (yrs < 2) return { ok: false, msg: '现任岗位未满两年，不符合报考条件' };
     return { ok: true };
   }
   function selectExam(g, targetId) {
@@ -16361,6 +16436,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var t = SELECT_TARGET.filter(function (x) { return x.id === targetId; })[0];
     if (!t) return '没有这个目标';
     if (G.lv < t.minLv) return '级别不够（需 ' + t.minLv + ' 级以上）';
+    var yrs2 = G.quartersInRank != null ? G.quartersInRank / 4 : 0;
+    if (yrs2 < (t.minYears || 2)) return '现任岗位未满 ' + (t.minYears || 2) + ' 年，不符合报考条件';
     G.ap -= 3;
     /* 考试分 = 能力 + 学历 + 属性 */
     var score = (G.ab || 0) * 0.3 + (G.prof || 0) * 0.25 + (G.judge || 0) * 0.2 +
@@ -16368,13 +16445,22 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     score = Math.round(clamp(score, 5, 100));
     var pass = score >= t.need;
     if (pass) {
-      /* 遴选成功：平台提升，级别跳跃 */
+      /* 遴选成功：平台提升（任职层级上移），级别最多 +1 */
       var oldTier = D.tierOf ? D.tierOf(G.lv) : 'town';
-      G.lv = clamp(G.lv + t.gain, 1, 20);
+      var oldLv = G.lv;
+      G.lv = clamp(G.lv + Math.min(1, t.gain), 1, 20);
       EN.refreshPost(G);
+      /* 任职地挪到新平台的层级 */
+      if (D.REGION && D.REGION.moveUp) {
+        var mv = D.REGION.moveUp(G.pos, t.toTier);
+        if (mv) G.pos = mv;
+      }
+      G.selectCd = t.cd || 8;
+      G.selectTier = t.toTier;
       EN.applyEffect({ mt: 6, pr: 4, nw: 3, dy: 3, pres: 5 }, '遴选');
       log('遴选', '你考上' + t.n + '（考分 ' + score + '/' + t.need + '）！平台从' +
-        (PLATFORM[oldTier] ? PLATFORM[oldTier].n : '原单位') + '跳到' + t.n + '。政绩 +6', 'up');
+        (PLATFORM[oldTier] ? PLATFORM[oldTier].n : '原单位') + '跳到' + t.n +
+        '，级别由第 ' + oldLv + ' 级变为第 ' + G.lv + ' 级。政绩 +6', 'up');
       G.tags = G.tags || []; if (G.tags.indexOf('遴选上岸') < 0) G.tags.push('遴选上岸');
       return '考上' + t.n + '（考分 ' + score + '）';
     }
@@ -19167,6 +19253,24 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
 
   /* 人脉关系 */
+  /* NPC 与玩家的相对位置：上级高几级、下级低几级、同级持平 */
+  function relPosTag(G, n) {
+    var d = (n.lv || 0) - (G.lv || 0);
+    var lvTxt = '第 ' + (n.lv || 1) + ' 级';
+    if (n.cat === 'lead') return lvTxt + ' · 高于你 ' + Math.max(0, d) + ' 级';
+    if (n.cat === 'sub') return lvTxt + ' · 低于你 ' + Math.max(0, -d) + ' 级';
+    if (n.cat === 'peer') return lvTxt + (d === 0 ? ' · 与你同级' : (d > 0 ? ' · 高于你 ' + d + ' 级' : ' · 低于你 ' + (-d) + ' 级'));
+    return lvTxt;
+  }
+  /* NPC 的官阶名：跟随实际岗位 */
+  function npcRankTxt(G, n) {
+    var EN2 = global.ENGINE;
+    var rk = (EN2 && EN2.rankTitleOf)
+      ? EN2.rankTitleOf(G.track ? G.track.id : 'zw', n.lv || 1, n.unit, n.post).name
+      : (n.rankName || '');
+    return rk || (n.post || n.kind || '');
+  }
+
   function subNetwork() {
     var G = g();
     var R = global.Relation;
@@ -19216,6 +19320,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
           '<span class="rw ' + R.relationCls(n) + '">' + esc(R.relationWord(n)) + '</span></div>' +
           '<div class="rm2">' + n.gender + ' · ' + n.age + ' 岁 · ' + esc(job) +
           (place ? ' · ' + esc(place) : '') + '</div>' +
+          '<div class="rm2">' + relPosTag(G, n) + '　' + esc(npcRankTxt(G, n)) + '</div>' +
           '<div class="rm3">信任 <b>' + Math.round(n.trust || 0) + '</b>' +
           '　人情 <b>' + (n.favor || 0) + '</b>' +
           (n.faction ? '　<span class="fc">班底</span>' : '') +
