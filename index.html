@@ -1676,6 +1676,17 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.178',
+    d: [
+      '修复界面出现「undefined」：兼任岗位的效果里有专业力/判断力/协调力等属性没登记中文名，结算时还被静默丢弃。现在这些属性真正生效，效果行完整显示，任何未知字段都不会再露成 undefined',
+      '修复个人页家宅「房产 undefined」：房产早已扩到 18 档，旧代码还按 4 档数组取值。现在显示具体房名、面积、购置价；车同理',
+      '健康项目重新定价：原来常规体检和请营养师都是 0.35 万，却一个 +4 一个 +7。现在按「健康每点约 0.06 万、减压每点约 0.02 万」定价，九项价格全部错开、效果越好越贵，页面写明规则',
+      '全面修复 NPC 岗位与级别错配：省级岗位最高只到省部级（16 级），不会再出现「某省纪委主要领导 · 第 18 级 · 中共中央总书记」。NPC 官阶改按岗位所在层级给现实称谓，国家领导全衔只属于玩家',
+      '人脉关系改为按实际级别实时分组：上级就上级、下级就下级、同级就同级。16 级的你不会再和 18 级的人同列「同级同事」，分组标题与「高于你几级」永远一致',
+      'NPC 年龄不再出现 58.5 / 60.25 岁这类小数，退休年龄随级别走（省部级 65、国家级 68）；亲缘组不再显示「第 1 级 科员」，改显示职业与退休状态'
+    ]
+  },
+  {
     v: '1.9.171',
     d: [
       '修复干部履历不更新：竞聘上岗时没有登记任职记录，所以升到国家主席了，履历里还停在最初的「办事员」。现在每次竞聘上岗都会写进履历',
@@ -2033,7 +2044,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.172.1102';
+  var VERSION = '1.9.179.1107';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -3714,17 +3725,28 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* ============================================================
    *  十三、健康管理
    * ============================================================ */
+  /* 定价规则：健康收益每点 0.06 万、减压每点 0.02 万，向上取整到 0.05 万。
+     所以「同价必定同效、效果越好越贵」，不会再出现两样都 0.35 万却一个 +4 一个 +7。
+     机关工间操免费（每季度限一次）、心理咨询主打减压，属于特例，文案里写明。 */
   var HEALTH_OPS = [
     { id: 'train', name: '机关工间操/快走', cost: 0, q: 1, free: 1, e: { he: 3, pres: -5 },
       d: '不花钱，也不占地方。每天半小时，贵在坚持。每季度只能算一次。' },
-    { id: 'check', name: '常规体检', cost: 0.35, q: 1, e: { he: 4 }, d: '全套生化、B超、心电图，一年一次。', need: {} },
-    { id: 'gym', name: '办健身卡', cost: 0.15, q: 1, e: { he: 6, pres: -8 }, d: '每周三次，能不能坚持看你。' },
-    { id: 'food', name: '请营养师', cost: 0.35, q: 1, e: { he: 7 }, d: '控油控盐控糖，应酬多的你最需要。' },
-    { id: 'tcm', name: '中医调理', cost: 0.5, q: 2, e: { he: 9 }, d: '汤药、针灸、拔罐，慢工出细活。' },
-    { id: 'psy', name: '心理咨询', cost: 0.6, q: 1, e: { pres: -22, he: 3 }, d: '跟专业的人聊聊，压力说出来就轻了一半。' },
-    { id: 'deep', name: '深度体检', cost: 1.2, q: 2, e: { he: 8 }, d: '三甲医院的深度套餐，连睡眠监测都做。' },
-    { id: 'doc', name: '私人医生', cost: 0.9, q: 2, e: { he: 10, pres: -6 }, d: '一个电话就上门，省时也省心。' },
-    { id: 'rest', name: '住院疗养', cost: 2.5, q: 4, e: { he: 18, pres: -20, mt: -6 }, d: '请半个月假，把身体彻底收拾一遍。' }
+    { id: 'check', name: '常规体检', cost: 0.2, q: 1, e: { he: 4 },
+      d: '全套生化、B超、心电图，一年一次。健康 +4，基础档。', need: {} },
+    { id: 'gym', name: '办健身卡', cost: 0.45, q: 1, e: { he: 6, pres: -8 },
+      d: '每周三次，健康 +6、压力 -8。比体检贵，因为还管减压。' },
+    { id: 'food', name: '请营养师', cost: 0.4, q: 1, e: { he: 7 },
+      d: '控油控盐控糖，健康 +7。纯健康收益，比健身卡便宜一点。' },
+    { id: 'deep', name: '深度体检', cost: 0.5, q: 2, e: { he: 8 },
+      d: '三甲医院深度套餐，连睡眠监测都做。健康 +8，占 2 季度。' },
+    { id: 'tcm', name: '中医调理', cost: 0.6, q: 2, e: { he: 9 },
+      d: '汤药、针灸、拔罐，慢工出细活。健康 +9，占 2 季度。' },
+    { id: 'doc', name: '私人医生', cost: 0.75, q: 2, e: { he: 10, pres: -6 },
+      d: '一个电话就上门，健康 +10、压力 -6，省时也省心。' },
+    { id: 'psy', name: '心理咨询', cost: 0.55, q: 1, e: { pres: -22, he: 3 },
+      d: '主打减压（压力 -22），健康只 +3。跟专业的人聊聊，压力说出来就轻了一半。' },
+    { id: 'rest', name: '住院疗养', cost: 1.7, q: 4, e: { he: 18, pres: -20, mt: -6 },
+      d: '请半个月假，健康 +18、压力 -20，但政绩 -6，占 4 季度。' }
   ];
 
   /* ============================================================
@@ -4199,7 +4221,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     },
     {
       id: 'c7', n: '兼任应急处置指挥部成员', need: { lv: 7, he: 60 },
-      e: { mt: 9, exec: 6, judge: 4, pres: 9, he: -4 }, cost: 0,
+      e: { mt: 9, coord: 6, judge: 4, pres: 9, he: -4 }, cost: 0,
       d: '一出事就得上，功劳和风险都在一夜之间。'
     }
   ];
@@ -9885,11 +9907,63 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   var ATTR_NAME = {
     ab: '才干', nw: '人脉', it: '清廉', dy: '党性', mt: '政绩',
     pr: '口碑', he: '健康', pres: '压力', cash: '现金', risk: '风险',
-    gjj: '公积金', ann: '年金'
+    gjj: '公积金', ann: '年金',
+    /* 这三项是角色真实存在的属性，之前漏登记，导致相关效果被静默丢弃 */
+    prof: '专业力', judge: '判断力', coord: '协调力'
   };
-  var CAP = { ab: 100, nw: 100, it: 100, dy: 100, mt: 999, pr: 100, he: 100, pres: 100 };
+  var CAP = { ab: 100, nw: 100, it: 100, dy: 100, mt: 999, pr: 100, he: 100, pres: 100,
+    prof: 100, judge: 100, coord: 100 };
 
   /* 当前角色所处路线的官阶：称谓与层级对照都只取本路线 */
+  /* ============================================================
+   *  NPC（同事/上级/下级）的级别与官阶：按「岗位所在层级」定，不按玩家路线默认名
+   *  之前 NPC 的官阶直接取路线默认名，玩家到 18 级时，一个省级纪委书记
+   *  会显示「第 18 级 · 中共中央总书记」，名实完全不符。
+   * ============================================================ */
+  function npcUnitTier(unit) {
+    var u = String(unit || '');
+    /* 先看是不是中央机构（且不含地方字样） */
+    if (/中共中央|国务院|中央军委|全国人民代表大会|全国政协|云澜国|最高人民法院|最高人民检察院/.test(u)
+        && !/省|市|县|区|镇|乡|街道/.test(u)) return 'nat';
+    if (/省|自治区/.test(u)) return 'prov';
+    if (/市|州/.test(u)) return 'city';
+    if (/县|区|旗/.test(u)) return 'county';
+    if (/镇|乡|街道|村/.test(u)) return 'town';
+    return 'county';
+  }
+  /* 各层级岗位能对应的级别区间：省级岗位最高就是正部 16 级 */
+  var NPC_BAND = {
+    town:   [1, 6],
+    county: [5, 10],
+    city:   [9, 14],
+    prov:   [13, 16],
+    nat:    [15, 18]
+  };
+  /* 按级别给现实层级称谓，NPC 绝不使用「中共中央总书记/国务院总理」等国家领导全衔 */
+  var NPC_REAL = [
+    '二级科员', '一级科员', '乡科级副职', '乡科级副职', '乡科级正职', '乡科级正职',
+    '县处级副职', '县处级副职', '县处级正职', '县处级正职',
+    '厅局级副职', '厅局级副职', '厅局级副职', '厅局级正职',
+    '省部级副职', '省部级正职', '国家级副职', '国家级正职',
+    '国家级正职', '国家级正职'
+  ];
+  function npcRankName(lv, unit, post) {
+    var i = Math.max(0, Math.min(19, (lv | 0) - 1));
+    var real = NPC_REAL[i];
+    /* 没有单位的（外部关系、亲属）就按级别给称谓，别硬抬 */
+    if (!unit) return real;
+    var band = NPC_BAND[npcUnitTier(unit)] || NPC_BAND.county;
+    /* 级别超出岗位层级上限时，称谓压到该层级顶格（省级岗位最高就是省部级正职） */
+    if (lv > band[1]) return NPC_REAL[band[1] - 1];
+    /* 低级别的人在高层级单位当科员是正常的，不抬 */
+    return real;
+  }
+  /* NPC 级别按岗位层级封顶 */
+  function npcClampLv(lv, unit) {
+    var band = NPC_BAND[npcUnitTier(unit)] || NPC_BAND.county;
+    return Math.max(band[0], Math.min(band[1], lv | 0));
+  }
+
   /* 官阶名的统一入口：17 级以上的国家领导职务要跟随实际岗位。
      否则会出现「第 18 级·国务院总理」但岗位却是「云澜国 国家主席」的自相矛盾。
      传入 unit/post 是为了 NPC、履历等场景也能对上。 */
@@ -10036,7 +10110,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         id: 'c' + i, seat: seats[i].n, lead: !!seats[i].lead,
         name: npcName(gender), gender: gender,
         age: clamp(g.age + rint(4, 18), 34, 66),
-        lv: lv, rankName: rankTitleOf(g.track ? g.track.id : 'zw', lv, '', '').name,
+        lv: lv, rankName: npcRankName(lv, '', ''),
         stance: st.n, stanceD: st.d,
         rel: clamp(rint(38, 76) + (seats[i].lead ? -6 : 4), 0, 100),
         support: rint(46, 66),       /* 对你的支持度，会前沟通可提升 */
@@ -10774,8 +10848,10 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     /* 上下级/同事的级别围绕玩家，外部的按 kind；gap 记下相对差，日后随玩家同步 */
     var leadGap = 0, peerGap = 0, subGap = 0;
     if (cat === 'lead') { leadGap = rint(2, 6); lv = clamp(g.lv + leadGap, 1, 20); }
-    else if (cat === 'peer') { peerGap = rint(-1, 2); lv = clamp(g.lv + peerGap, 1, 20); }
+    else if (cat === 'peer') { peerGap = 0; lv = g.lv; }   /* 同级同事：必须与玩家同级 */
     else if (cat === 'sub') { subGap = rint(2, 5); lv = clamp(g.lv - subGap, 1, 20); }
+    /* 级别不能超出岗位所在层级 */
+    if (opt.unit) lv = npcClampLv(lv, opt.unit);
     /* 年龄与级别挂钩：级别越高年纪越大（更符合现实） */
     var age;
     if (cat === 'lead') age = clamp(28 + lv * 1.9 + rint(-3, 6), 32, 68);
@@ -10793,7 +10869,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       rel: clamp(k.rel + rint(-10, 15), 0, 100),
       trust: clamp(Math.round(k.rel * 0.5 + rint(-8, 12)), 0, 100),
       power: lv,
-      lv: lv, rankName: rankTitleOf(trackId, lv, opt.unit, opt.post).name,
+      lv: lv, rankName: npcRankName(lv, opt.unit, opt.post || k.k),
       unit: opt.unit || '', post: opt.post || k.k,
       place: a.p.n + '·' + a.c.n, pos: pos,
       char: ch.n, charD: ch.d, hobby: pick2(D3.P_HOBBIES),
@@ -12235,7 +12311,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       if (!isOfficial) {
         if (n.isSystem && n.lv && chance(0.02)) {
           n.lv = Math.round(clamp(n.lv + 1, 1, 19));
-          n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
+          n.rankName = npcRankName(n.lv, n.unit, n.post);
           n.career.unshift({ y: g.year, q: g.q, k: '进步', post: n.job || n.post || '', lv: n.lv });
         }
         continue;
@@ -12271,7 +12347,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         /* 晋升 */
         var olv = n.lv, opost = n.post;
         n.lv = Math.round(clamp((n.lv || 1) + 1, 1, 20));
-        n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
+        n.rankName = npcRankName(n.lv, n.unit, n.post);
         if (n.formerStaff) {
           var npz = D.postOf(g.track, n.lv, D.REGION.at(D.REGION.randomPos()), rng);
           n.unit = npz.unit; n.post = npz.post; n.place = D.REGION.at(n.pos || g.pos).p.n;
@@ -12288,7 +12364,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         /* 降级或免职：多半是出了事 */
         var op2 = n.post;
         n.lv = Math.round(clamp((n.lv || 1) - 1, 1, 20));
-        n.rankName = rankTitleOf(trackId, n.lv, n.unit, n.post).name;
+        n.rankName = npcRankName(n.lv, n.unit, n.post);
         n.post = D.postOf(g.track, n.lv, D.REGION.at(n.pos || g.pos), rng).post;
         n.postSince = stamp;
         n.rel = Math.round(clamp(n.rel - 4, 0, 100));
@@ -12311,32 +12387,42 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* 同僚的级别要跟着你走：你升上去了，直属上级仍在你之上、下级仍在你之下。
      否则会出现「你是国家主席，直属上级却还是个科长」的荒唐情况。 */
   function syncStaffLevel(g) {
+    var myLv = g.lv || 1;
     for (var i = 0; i < (g.npcs || []).length; i++) {
       var n = g.npcs[i];
       if (n.retired || n.removed) continue;
+      /* 你进了中央，身边同事的单位也要跟着换成中央机构，不能还挂着「某省纪委」 */
+      if (myLv >= 17 && n.cat !== 'kin' && n.cat !== 'out' && n.inSys !== false) {
+        if (g.unit && npcUnitTier(n.unit) !== 'nat') n.unit = g.unit;
+      }
+      var band = NPC_BAND[npcUnitTier(n.unit)] || NPC_BAND.county;
       if (n.cat === 'lead') {
-        /* 上级：始终比玩家高 2~5 级，但不低于其既往最高级别 */
-        var want = clamp((g.lv || 1) + (n.leadGap || 0), 1, 20);
-        if (want > (n.lv || 1)) n.lv = want;
-        else if (want < (n.lv || 1) - 1) n.lv = Math.max(want, (n.lv || 1) - 1);
+        /* 上级：始终高于你，但不得超过其岗位层级的上限 */
+        var want = Math.min(band[1], Math.max(band[0], myLv + Math.max(1, n.leadGap || 2)));
+        n.lv = Math.max(band[0], want);
+        /* 若岗位层级上限都够不到你，就让他挂到中央机构，保证「上级」成立 */
+        if (n.lv <= myLv && myLv < 17) n.lv = Math.min(20, myLv + 1);
       } else if (n.cat === 'peer') {
-        /* 同级：围绕玩家 ±2 级 */
-        var wp = clamp((g.lv || 1) + (n.peerGap || 0), 1, 20);
-        if (Math.abs(wp - (n.lv || 1)) > 2) n.lv = wp;
+        /* 同级：严格等于你（受岗位层级约束，超不出就归到下级） */
+        n.lv = npcClampLv(myLv, n.unit);
+        n.peerGap = 0;
       } else if (n.cat === 'sub') {
-        /* 下级：比玩家低 2~5 级，且不超过玩家 */
-        var ws = clamp((g.lv || 1) - (n.subGap || 0), 1, 20);
-        if (ws > (n.lv || 1)) n.lv = ws;
-        if ((n.lv || 1) > (g.lv || 1)) n.lv = Math.max(1, (g.lv || 1) - 1);
+        /* 下级：严格低于你 */
+        n.lv = Math.min(band[1], Math.max(band[0], myLv - Math.max(1, n.subGap || 3)));
+        if (n.lv >= myLv) n.lv = Math.max(1, myLv - 1);
       }
       if (n.lv != null) n.power = n.lv;
-      /* 官阶名跟随各自岗位 */
-      if (n.unit || n.post) {
-        n.rankName = rankTitleOf(g.track ? g.track.id : 'zw', n.lv, n.unit, n.post).name;
-      }
-      /* 年龄随级别水涨船高（级别高了年纪不可能太小） */
+      /* 官阶按岗位层级给，不再回落到路线默认名 */
+      n.rankName = npcRankName(n.lv, n.unit, n.post || n.kind);
+      /* 年龄取整，且不能比该级别的最低年龄还小 */
       var minA = (D.RANKS[Math.max(0, Math.min(19, (n.lv || 1) - 1))] || {}).minAge || 22;
-      if ((n.age || 0) < minA) n.age = clamp(minA + rint(0, 4), 22, 70);
+      n.age = Math.floor(n.age || minA);
+      if (n.age < minA) n.age = minA + rint(0, 4);
+      n.age = Math.min(70, n.age);
+      /* 关系类别随实际级别动态校正：上级就上级、下级就下级 */
+      if (n.cat === 'lead' || n.cat === 'peer' || n.cat === 'sub') {
+        n.cat = n.lv > myLv ? 'lead' : (n.lv < myLv ? 'sub' : 'peer');
+      }
     }
   }
   function npcTick(g, lines) {
@@ -12521,7 +12607,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     natPostFix: natPostFix,
     startQuarter: startQuarter, handleTodo: handleTodo, allDone: allDone, quarterEnd: quarterEnd,
     makeNpc: makeNpc, buildNpcs: buildNpcs, rankList: rankList, buildRank: buildRank,
-    rankOf: rankOf, rankTitleOf: rankTitleOf, rankAt: rankAt, pickEvent: pickEvent, makeProposal: makeProposal,
+    rankOf: rankOf, rankTitleOf: rankTitleOf,
+    npcUnitTier: npcUnitTier, npcRankName: npcRankName, npcClampLv: npcClampLv, syncStaffLevel: syncStaffLevel, rankAt: rankAt, pickEvent: pickEvent, makeProposal: makeProposal,
     monthsOf: monthsOf, monthYear: monthYear, annualAssess: annualAssess,
     benefitsOf: benefitsOf, refreshBenefits: refreshBenefits,
     pickUrgent: pickUrgent, rollUrgent: rollUrgent, urgentChoice: urgentChoice,
@@ -12599,7 +12686,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       edu: o.edu || pick(['高中', '大专', '本科', '硕士研究生']),
       party: o.party || (Math.random() < 0.4 ? '中共党员' : '群众'),
       lv: lv, power: lv, inSystem: inSys,
-      rankName: inSys ? (o.rankName || (ENGINE.rankTitleOf ? ENGINE.rankTitleOf(g.track ? g.track.id : 'zw', lv, o.unit, o.post).name : D.rankNameOf(g.track ? g.track.id : 'zw', lv).name)) : '',
+      rankName: inSys ? (o.rankName || (ENGINE.npcRankName ? ENGINE.npcRankName(lv, o.unit, o.post) : D.rankNameOf(g.track ? g.track.id : 'zw', lv).name)) : '',
       unit: o.unit || '', post: o.job || o.kind,
       place: o.place || (a.p.n + '·' + a.c.n), pos: g.pos.slice(),
       home: o.home || a.u.n,
@@ -13746,7 +13833,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         if (type === 'up') {
           n.lv = clamp(n.lv + 1, 1, 20);
           n.post = EN.nextPostName ? EN.nextPostName(G, n) : n.post;
-          n.rankName = (ENGINE.rankTitleOf ? ENGINE.rankTitleOf(G.track ? G.track.id : 'zw', n.lv, n.unit, n.post).name : D.rankNameOf(G.track ? G.track.id : 'zw', n.lv).name);
+          n.rankName = (ENGINE.npcRankName ? ENGINE.npcRankName(n.lv, n.unit, n.post) : D.rankNameOf(G.track ? G.track.id : 'zw', n.lv).name);
           n.postSince = G.year * 10 + G.q;
           G.posts = Math.max(0, (G.posts || 0) - 1);
           n.trust = clamp(n.trust + 20, 0, 100);
@@ -17105,10 +17192,19 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     h += '<div class="center"><button class="btn ghost sm" onclick="APP.reroll(\'town\')">换三个地方</button></div>';
     return h;
   }
+  var EFF_NAME = {
+    ab: '才干', nw: '人脉', it: '清廉', dy: '党性', mt: '政绩', pr: '口碑',
+    he: '健康', pres: '压力', cash: '现金', risk: '纪律风险', gjj: '公积金', ann: '年金',
+    prof: '专业力', judge: '判断力', coord: '协调力', exec: '协调力', health: '健康',
+    rel: '关系', love: '感情', mood: '心情', study: '学业', talent: '天赋'
+  };
   function effLine(e) {
     if (!e) return '';
-    var nm = { ab: '才干', nw: '人脉', it: '清廉', dy: '党性', mt: '政绩', pr: '口碑', he: '健康', pres: '压力', cash: '现金', risk: '纪律风险' };
-    var s = Object.keys(e).map(function (k) { return nm[k] + (e[k] > 0 ? ' +' : ' ') + e[k] + (k === 'cash' ? ' 万' : ''); }).join('　');
+    var s = Object.keys(e).filter(function (k) {
+      return EFF_NAME[k] && typeof e[k] === 'number' && e[k] !== 0;
+    }).map(function (k) {
+      return EFF_NAME[k] + (e[k] > 0 ? ' +' : ' ') + e[k] + (k === 'cash' ? ' 万' : '');
+    }).join('　');
     return s ? '<div class="ef">' + s + '</div>' : '';
   }
 
@@ -18518,7 +18614,9 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       '<span>压力</span><b>' + Math.round(G.pres) + '</b><span class="sep">/</span>' +
       '<span>心理</span><b>' + Math.round(100 - G.pres) + '</b></div>' +
       '<div class="hint">' + healthAdvice(G) + '</div>' +
-      '<div class="hint">本季度免费锻炼：' + (G.freeTrain ? '<span style="color:#b0503c">已用过</span>' : '<span style="color:#4f7a54">未使用</span>') + '</div></div>';
+      '<div class="hint">本季度免费锻炼：' + (G.freeTrain ? '<span style="color:#b0503c">已用过</span>' : '<span style="color:#4f7a54">未使用</span>') + '</div>' +
+      '<div class="hint">价格按收益定：健康每点约 0.06 万、减压每点约 0.02 万，效果越好越贵；' +
+      '心理咨询主打减压，工间操每季度免费一次。</div></div>';
     h += '<div class="card">' + SYS.Health.list().map(function (op, i) {
       var why = SYS.Health.can(op);
       return '<div class="opt sm2 ' + (why ? 'dis' : '') + '" onclick="APP.health(' + i + ')">' +
@@ -18607,7 +18705,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       var years = (t / 4).toFixed(1);
       var s2 = '<div class="card npc">' +
         '<div class="perrow">' +
-        global.Avatar.html(n.gender, n.face || 0, n.age, { size: 52, job: n.post || n.kind }) +
+        global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 52, job: n.post || n.kind }) +
         '<div class="peri">' +
         '<div class="eh"><b>' + esc(n.name) + '</b>' +
         '<span class="tag">' + (n.cat === 'sub' ? '下属' : '同事') + '</span>' +
@@ -18615,7 +18713,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
           : (n.avoidKin ? '<span class="tag" style="background:#a8842c;color:#fff">同宗·需核实</span>' : '')) +
         (n.retired ? '<span class="tag">已退休</span>' : '') +
         '</div>' +
-        '<div class="ed">' + n.gender + ' · ' + n.age + ' 岁 · 第 ' + n.lv + ' 级 · ' + esc(n.rankName) + '</div>' +
+        '<div class="ed">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁 · 第 ' + n.lv + ' 级 · ' + esc(npcRankTxt(G, n)) + '</div>' +
         '<div class="ed"><b>' + esc(n.unit || '') + esc(n.post || n.kind) + '</b>　现任岗位 ' + years + ' 年</div>' +
         '<div class="ed">资历：<b style="color:' + gr.c + '">' + gr.n + '</b>　·　' + esc(n.char || '') + '</div>' +
         '</div></div>' +
@@ -19257,18 +19355,26 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   function relPosTag(G, n) {
     var d = (n.lv || 0) - (G.lv || 0);
     var lvTxt = '第 ' + (n.lv || 1) + ' 级';
-    if (n.cat === 'lead') return lvTxt + ' · 高于你 ' + Math.max(0, d) + ' 级';
-    if (n.cat === 'sub') return lvTxt + ' · 低于你 ' + Math.max(0, -d) + ' 级';
-    if (n.cat === 'peer') return lvTxt + (d === 0 ? ' · 与你同级' : (d > 0 ? ' · 高于你 ' + d + ' 级' : ' · 低于你 ' + (-d) + ' 级'));
-    return lvTxt;
+    /* 只按实际级别判定，与分组口径完全一致 */
+    if (d > 0) return lvTxt + ' · 高于你 ' + d + ' 级';
+    if (d < 0) return lvTxt + ' · 低于你 ' + (-d) + ' 级';
+    return lvTxt + ' · 与你同级';
   }
-  /* NPC 的官阶名：跟随实际岗位 */
+  /* NPC 的官阶名：按岗位所在层级给现实称谓，绝不套用国家领导全衔 */
   function npcRankTxt(G, n) {
     var EN2 = global.ENGINE;
-    var rk = (EN2 && EN2.rankTitleOf)
-      ? EN2.rankTitleOf(G.track ? G.track.id : 'zw', n.lv || 1, n.unit, n.post).name
-      : (n.rankName || '');
-    return rk || (n.post || n.kind || '');
+    return (EN2 && EN2.npcRankName)
+      ? EN2.npcRankName(n.lv || 1, n.unit, n.post || n.kind)
+      : (n.rankName || n.post || n.kind || '');
+  }
+  /* 分组口径：亲缘 / 外部关系优先，其余一律按「实际级别」实时归类。
+     这样上级永远在上级组、下级永远在下级组，不会出现 16 级的你
+     和 18 级的人同列「同级同事」。 */
+  function netGroupOf(G, n) {
+    if (n.isKin || n.cat === 'kin') return 'kin';
+    if (n.cat === 'out') return 'out';
+    var d = (n.lv || 0) - (G.lv || 0);
+    return d > 0 ? 'lead' : (d < 0 ? 'sub' : 'peer');
   }
 
   function subNetwork() {
@@ -19284,11 +19390,11 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
     /* 分组：直属上级 / 直属下级 / 同级同事 / 亲缘 / 外部关系 */
     var groups = [
-      { id: 'lead', n: '直属上级', pick: function (n) { return n.cat === 'lead'; } },
-      { id: 'sub', n: '直属下级', pick: function (n) { return n.cat === 'sub'; } },
-      { id: 'peer', n: '同级同事', pick: function (n) { return n.cat === 'peer'; } },
-      { id: 'kin', n: '亲缘', pick: function (n) { return n.cat === 'kin'; } },
-      { id: 'out', n: '外部关系', pick: function (n) { return n.cat === 'out'; } }
+      { id: 'lead', n: '直属上级', pick: function (n) { return netGroupOf(G, n) === 'lead'; } },
+      { id: 'peer', n: '同级同事', pick: function (n) { return netGroupOf(G, n) === 'peer'; } },
+      { id: 'sub', n: '直属下级', pick: function (n) { return netGroupOf(G, n) === 'sub'; } },
+      { id: 'kin', n: '亲缘', pick: function (n) { return netGroupOf(G, n) === 'kin'; } },
+      { id: 'out', n: '外部关系', pick: function (n) { return netGroupOf(G, n) === 'out'; } }
     ];
 
     groups.forEach(function (gp) {
@@ -19308,7 +19414,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         var place = n.place || '';
         var last = (n.meets && n.meets.length) ? n.meets[0] : null;
         return '<div class="relrow" onclick="APP.npcPage(' + n.id + ')">' +
-          global.Avatar.html(n.gender, n.face || 0, n.age, { size: 46, job: job }) +
+          global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 46, job: job }) +
           '<div class="ri">' +
           '<div class="rh"><b>' + esc(n.name) + '</b>' +
           '<span class="rk">' + esc(n.kind) + '</span>' +
@@ -19318,9 +19424,13 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
           (n.retired ? '<span class="rk">已退休</span>' : '') +
           (movedTag(G, n) ? '<span class="rk ' + movedTag(G, n).cls + '">' + movedTag(G, n).t + '</span>' : '') +
           '<span class="rw ' + R.relationCls(n) + '">' + esc(R.relationWord(n)) + '</span></div>' +
-          '<div class="rm2">' + n.gender + ' · ' + n.age + ' 岁 · ' + esc(job) +
+          '<div class="rm2">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁 · ' + esc(job) +
           (place ? ' · ' + esc(place) : '') + '</div>' +
-          '<div class="rm2">' + relPosTag(G, n) + '　' + esc(npcRankTxt(G, n)) + '</div>' +
+          (netGroupOf(G, n) === 'kin'
+            ? '<div class="rm2">' + (n.retired ? '已退休' : esc(n.job || n.kind || '家人')) + '</div>'
+            : (netGroupOf(G, n) === 'out'
+              ? '<div class="rm2">第 ' + (n.lv || 1) + ' 级 · ' + esc(npcRankTxt(G, n)) + '（其他单位）</div>'
+              : '<div class="rm2">' + relPosTag(G, n) + '　' + esc(npcRankTxt(G, n)) + '</div>')) +
           '<div class="rm3">信任 <b>' + Math.round(n.trust || 0) + '</b>' +
           '　人情 <b>' + (n.favor || 0) + '</b>' +
           (n.faction ? '　<span class="fc">班底</span>' : '') +
@@ -19357,10 +19467,10 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
     h += '<div class="card npcpage">' +
       '<div class="perrow">' +
-      global.Avatar.html(n.gender, n.face || 0, n.age, { size: 70, job: job }) +
+      global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 70, job: job }) +
       '<div class="peri">' +
       '<div class="nh"><b>' + esc(n.name) + '</b><span class="tag">' + esc(n.kind) + '</span></div>' +
-      '<div class="nmeta">' + n.gender + ' · ' + n.age + ' 岁 · ' + esc(n.edu || '—') + ' · ' + esc(n.party || '—') + '</div>' +
+      '<div class="nmeta">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁 · ' + esc(n.edu || '—') + ' · ' + esc(n.party || '—') + '</div>' +
       (isOfc ? '<div class="nmeta">第 ' + n.lv + ' 级 · ' + esc(n.rankName) + '　' +
         (n.unit ? '<b>' + esc(n.unit) + '</b>' : '') + esc(n.post || '') + '</div>'
         : '<div class="nmeta">' + esc(job) + (n.income ? '　月收入约 ' + n.income + ' 元' : '') +
@@ -19413,7 +19523,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     }
     if (isOfc) {
       h += '<div class="card"><div class="nm sect">现任岗位</div>' +
-        '<div class="ds"><b>' + esc(n.unit || '') + esc(n.post || '') + '</b>　第 ' + n.lv + ' 级 · ' + esc(n.rankName) + '</div>' +
+        '<div class="ds"><b>' + esc(n.unit || '') + esc(n.post || '') + '</b>　第 ' + n.lv + ' 级 · ' + esc(npcRankTxt(G, n)) + '</div>' +
         '<div class="hint">现任岗位已 ' + tenureTxt(G, n) + '，预计 ' + retireAgeOf(n) + ' 岁退休。' +
         '每季度他都可能升、降、平调，也可能原地不动。</div></div>';
     }
@@ -19468,9 +19578,13 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     return (t / 4).toFixed(1) + ' 年';
   }
   function retireAgeOf(n) {
-    /* 女干部 55、男 60（简化：女 55/男 60） */
-    var base = n.gender === '女' ? 55 : 60;
-    if ((n.lv || 1) >= 15) base += 3;
+    /* 退休年龄随级别走：省部级可干到 63~65，国家级到 68 */
+    var lv = n.lv || 1;
+    var base;
+    if (lv >= 17) base = 68;
+    else if (lv >= 15) base = 65;
+    else if (lv >= 13) base = 62;
+    else base = (n.gender === '女' ? 55 : 60);
     return base;
   }
 
@@ -19498,10 +19612,10 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       h += '<div class="card"><div class="nm sect">班底成员</div>';
       h += ms.map(function (n) {
         return '<div class="relrow" onclick="APP.npcPage(' + n.id + ')">' +
-          global.Avatar.html(n.gender, n.face || 0, n.age, { size: 44, job: n.job || n.post || n.kind }) +
+          global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 44, job: n.job || n.post || n.kind }) +
           '<div class="ri">' +
           '<div class="rh"><b>' + esc(n.name) + '</b><span class="rk">' + esc(n.kind) + '</span></div>' +
-          '<div class="rm2">' + n.age + ' 岁 · ' + esc(n.job || n.post || n.kind) + ' · 第 ' + n.lv + ' 级</div>' +
+          '<div class="rm2">' + Math.floor(n.age) + ' 岁 · ' + esc(n.job || n.post || n.kind) + ' · 第 ' + n.lv + ' 级</div>' +
           '<div class="rm3">信任 <b>' + Math.round(n.trust || 0) + '</b>　人情 <b>' + (n.favor || 0) + '</b>' +
           '　加入于 ' + Math.floor(n.faction.since / 10) + '年Q' + (n.faction.since % 10) + '</div>' +
           '</div>' +
@@ -19522,7 +19636,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     h += pool.slice(0, 14).map(function (n) {
       var c = F.cond(n);
       return '<div class="relrow">' +
-        global.Avatar.html(n.gender, n.face || 0, n.age, { size: 42, job: n.job || n.post || n.kind }) +
+        global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 42, job: n.job || n.post || n.kind }) +
         '<div class="ri">' +
         '<div class="rh"><b>' + esc(n.name) + '</b><span class="rk">' + esc(n.kind) + '</span></div>' +
         '<div class="rm2">' + esc(n.job || n.post || n.kind) + ' · 第 ' + n.lv + ' 级</div>' +
@@ -19664,7 +19778,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         return '<div class="opt sm2 ' + (x.ok ? '' : 'dis') + '" onclick="APP.takeConcur(' + i + ')">' +
           '<div class="l">' + esc(x.op.n) + '</div>' +
           '<div class="ds">' + esc(x.op.d) + '</div>' +
-          '<div class="ef">' + effLine(x.op.e) + (x.ok ? '' : ' <b style="color:#b02a2a">需：' + esc(x.why) + '</b>') + '</div></div>';
+          effLine(x.op.e) + (x.ok ? '' : '<div class="ef"><b style="color:#b02a2a">需：' + esc(x.why) + '</b></div>') + '</div>';
       }).join('') +
       '<div class="sect2" style="margin-top:10px">平级交流换任</div>' +
       '<div class="hint">' + (ex.ok ?
@@ -19686,8 +19800,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       row2('配偶', G.spouse ? esc(G.spouse.name) + '　感情 ' + G.spouse.love + '　家世：' + esc(G.spouse.fam) : '未婚') +
       row2('子女', G.children.length ? G.children.map(function (c) { return esc(c.name) + '(' + Math.floor(c.ageF) + '岁·' + c.edu + ')'; }).join('、') : '无') +
       row2('长辈', G.elders.filter(function (e) { return e.alive; }).length + ' 位健在（父母 + 配偶父母）') +
-      row2('房产', ['无', '首套', '改善', '别墅/大平层'][G.house]) +
-      row2('车', ['无', '代步车', '好车', '豪车'][G.car]) +
+      row2('房产', houseLabel(G)) +
+      row2('车', carLabel(G)) +
       row2('贷款', f1(G.loan) + ' 万') +
       '</div>';
 
@@ -19699,6 +19813,19 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
     h += '</div>';
     return h;
+  }
+  /* 家宅概览：房产/车辆按真实购置表显示，越界也不会出 undefined */
+  function houseLabel(G) {
+    var i = (G.house | 0);
+    if (i <= 0) return '无（住单位周转房）';
+    var t = (global.DATA2 && global.DATA2.HOUSE_BUY) ? global.DATA2.HOUSE_BUY[i - 1] : null;
+    return t ? esc(t.n) + '（' + t.area + '㎡ · ' + t.price + ' 万）' : '自有住房';
+  }
+  function carLabel(G) {
+    var i = (G.car | 0);
+    if (i <= 0) return '无';
+    var t = (global.DATA2 && global.DATA2.CAR_BUY) ? global.DATA2.CAR_BUY[i - 1] : null;
+    return t ? esc(t.n) + '（' + t.price + ' 万）' : '自有车辆';
   }
   function row2(k, v) {
     return '<div class="li2"><b>' + k + '</b><span>' + v + '</span></div>';
