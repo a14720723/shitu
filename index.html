@@ -1676,6 +1676,15 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
+    v: '1.9.183',
+    d: [
+      '修复「家里要买农机」金额倒挂：差两万块，全额支持却只花 0.8 万、出一半反而 1 万。现在全额支持 2 万、出一半 1 万，选项上直接标金额',
+      '修复家事支出被扣两次：14 个花钱选项同时写了「效果扣钱」和「费用扣钱」，实际扣的是标价的双倍。现在统一只扣一次',
+      '修复免费工间操被判「现金不足」：免费项目不再检查现金，只受每季度一次限制；付费项目提示写全「现金不足（需 X 万）」',
+      '巡视组按干部管理权限分档：县委巡察组 / 市委巡察组 / 省委巡视组 / 中央巡视组。副国级（17 级）以上由中央巡视组谈话，不再被省委巡视组找去；已存档的巡视也会即时更正'
+    ]
+  },
+  {
     v: '1.9.178',
     d: [
       '修复界面出现「undefined」：兼任岗位的效果里有专业力/判断力/协调力等属性没登记中文名，结算时还被静默丢弃。现在这些属性真正生效，效果行完整显示，任何未知字段都不会再露成 undefined',
@@ -2044,7 +2053,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.179.1107';
+  var VERSION = '1.9.183.1110';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -3864,8 +3873,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     {
       id: 'h1', t: '老屋要翻修', d: '老家的房子年久失修，漏雨。父母问你要不要出钱修一下。',
       o: [
-        { l: '出 1.2 万，修好它', e: { cash: -1.2, love: 8, pr: 2, dy: 2 }, cost: 1.2 },
-        { l: '出 3 万，翻修得体面些', e: { cash: -3, love: 14, pr: 4, it: -2 }, cost: 3 },
+        { l: '出 1.2 万，修好它', e: {love: 8, pr: 2, dy: 2} , cost: 1.2 },
+        { l: '出 3 万，翻修得体面些', e: {love: 14, pr: 4, it: -2} , cost: 3 },
         { l: '先不修，等政策', e: { love: -6, pr: -2 } }
       ]
     },
@@ -3880,8 +3889,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     {
       id: 'h3', t: '父亲的体检报告', d: '父亲体检发现血压偏高，医生说要系统治疗。',
       o: [
-        { l: '接来市里大医院看', e: { cash: -0.8, love: 10, pr: 3, dy: 2, he: -2 }, cost: 0.8 },
-        { l: '寄钱回去买药', e: { cash: -1, love: 5 }, cost: 1 },
+        { l: '接来市里大医院看', e: {love: 10, pr: 3, dy: 2, he: -2} , cost: 0.8 },
+        { l: '寄钱回去买药', e: {love: 5} , cost: 1 },
         { l: '打电话叮嘱一下', e: { love: -3 } }
       ]
     },
@@ -3889,7 +3898,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       id: 'h4', t: '族里修谱', d: '族中要重修族谱，按男丁摊派，你这一份两千。',
       o: [
         { l: '照数交', e: { cash: -0.2, love: 6, pr: 2, nw: 3 } },
-        { l: '多出一份，写进捐资名录', e: { cash: -1, love: 10, pr: 5, nw: 4 }, cost: 1 },
+        { l: '多出一份，写进捐资名录', e: {love: 10, pr: 5, nw: 4} , cost: 1 },
         { l: '以公职身份不宜为由不出', e: { love: -8, pr: -3 } }
       ]
     },
@@ -3898,7 +3907,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       o: [
         { l: '按政策办，不找人', e: { love: -3, it: 3 } },
         { l: '托教育局的老同学问问', e: { nw: -5, love: 8, it: -5, risk: 6 } },
-        { l: '出钱让他上民办', e: { cash: -0.8, love: 6, pr: 1 }, cost: 0.8 }
+        { l: '出钱让他上民办', e: {love: 6, pr: 1} , cost: 0.8 }
       ]
     },
     {
@@ -3918,18 +3927,18 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       ]
     },
     {
-      id: 'h8', t: '家里要买农机', d: '家里想添一台农机，差两万块。',
+      id: 'h8', t: '家里要买农机', d: '家里想添一台农机，差两万块。全额支持就是两万，出一半就是一万。',
       o: [
-        { l: '全额支持', e: { cash: -0.8, love: 8, pr: 2 }, cost: 0.8 },
-        { l: '出一半', e: { cash: -1, love: 4 }, cost: 1 },
+        { l: '全额支持（2 万）', e: { love: 8, pr: 2 }, cost: 2 },
+        { l: '出一半（1 万）', e: { love: 4 }, cost: 1 },
         { l: '建议先贷款', e: { love: -2 } }
       ]
     },
     {
       id: 'h9', t: '孩子的学区', d: '孩子要上小学了，学区房和择校摆在眼前。',
       o: [
-        { l: '买学区房', e: { cash: -9, love: 8, pr: 2, it: -3 }, cost: 9 },
-        { l: '交择校费', e: { cash: -1.2, love: 6, it: -4, risk: 4 }, cost: 1.2 },
+        { l: '买学区房', e: {love: 8, pr: 2, it: -3} , cost: 9 },
+        { l: '交择校费', e: {love: 6, it: -4, risk: 4} , cost: 1.2 },
         { l: '就近入学', e: { love: -4, dy: 2 } }
       ]
     },
@@ -3945,15 +3954,15 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       id: 'h11', t: '父母想搬来同住', d: '父母年纪大了，想搬来和你一起住。',
       o: [
         { l: '接来同住', e: { love: 12, he: 3, pres: 5, pr: 3, dy: 2 } },
-        { l: '在同城租一套房给他们', e: { cash: -1.5, love: 8, pr: 2 }, cost: 1.5 },
+        { l: '在同城租一套房给他们', e: {love: 8, pr: 2} , cost: 1.5 },
         { l: '劝他们留在老家', e: { love: -8 } }
       ]
     },
     {
       id: 'h12', t: '岳父母的寿宴', d: '岳父母六十大寿，家里想办得热闹些。',
       o: [
-        { l: '大办一场', e: { cash: -1.2, love: 10, pr: -3, it: -4, risk: 5 }, cost: 1.2 },
-        { l: '家宴小聚', e: { cash: -0.5, love: 6, pr: 1 }, cost: 0.5 },
+        { l: '大办一场', e: {love: 10, pr: -3, it: -4, risk: 5} , cost: 1.2 },
+        { l: '家宴小聚', e: {love: 6, pr: 1} , cost: 0.5 },
         { l: '只打钱不办', e: { cash: -0.3, love: -4 } }
       ]
     }
@@ -13101,8 +13110,11 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     list: function () { return D.HEALTH_OPS || []; },
     can: function (op) {
       var G = g();
-      if (op.free && G.freeTrain) return '本季度已经锻炼过了';
-      return (G.cash < op.cost) ? '现金不足' : null;
+      /* 免费项目（工间操）只受季度次数限制，永远不查现金。
+         之前 0 元也走现金判断，现金为 0 或为负时连免费锻炼都被判「现金不足」。 */
+      if (!op.cost) return (op.free && G.freeTrain) ? '本季度已经锻炼过了' : null;
+      if (G.cash < op.cost) return '现金不足（需 ' + op.cost + ' 万）';
+      return null;
     },
     do: function (i) {
       var G = g();
@@ -14695,6 +14707,17 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* ============================================================
    *  三、巡视巡察
    * ============================================================ */
+  /* 巡视组来源按干部管理权限走：
+     县管→县委巡察组，市管→市委巡察组，省管→省委巡视组，
+     副国级（17 级）以上是中央管理干部，只能由中央巡视组谈话。
+     之前 13 级以上一律写「省委巡视组」，副国级也被省委找去谈话，明显不对。 */
+  function inspectLevelOf(lv) {
+    if (lv >= 17) return '中央巡视组';
+    if (lv >= 13) return '省委巡视组';
+    if (lv >= 10) return '市委巡察组';
+    return '县委巡察组';
+  }
+
   var INSPECT_PHASE = [
     { id: 'talk', n: '个别谈话', d: '巡视组挨个找人谈话，谈到你的时候，说什么就是什么。' },
     { id: 'doc', n: '调阅资料', d: '把你任内的账本、会议记录、工程合同全调走了。' },
@@ -14715,14 +14738,17 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       var p = 0.06 + (G.lv - 7) * 0.012 + (G.risk / 100) * 0.18 + ((100 - G.it) / 100) * 0.12;
       if (G.year - (G.inspect ? G.inspect.lastYear : 0) < 3) return null;
       if (!chance(p)) return null;
-      var level = G.lv >= 13 ? '省委巡视组' : (G.lv >= 10 ? '市委巡察组' : '县委巡察组');
+      var level = inspectLevelOf(G.lv);
+      var host = G.lv >= 17
+        ? '按中央统一部署进驻' + (G.unit || '所在单位')
+        : '进驻' + (G.unit || '本单位的简称');
       G.inspect = {
         active: true, level: level, phase: 0,
         startYear: G.year, lastYear: G.year,
-        name: level + '进驻' + (G.unit || '本单位的简称'),
+        name: level + host,
         deals: [], result: null
       };
-      log('巡视', level + '进驻了。动员会上，组长说"这次是政治体检"。', 'bad');
+      log('巡视', level + host + '。动员会上，组长说"这次是政治体检"。', 'bad');
       return G.inspect;
     },
     /* 每个阶段选一个态度 */
@@ -14740,7 +14766,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         G.inspect.gamble = (G.inspect.gamble || 0) + 1;
       }
       G.inspect.phase++;
-      log('巡视', '巡视组' + INSPECT_PHASE[Math.min(G.inspect.phase - 1, 2)].n + '，你选择「' + d.n + '」。');
+      var il = G.inspect.level || inspectLevelOf(G.lv);
+      log('巡视', il + '开展' + INSPECT_PHASE[Math.min(G.inspect.phase - 1, 2)].n + '，你选择「' + d.n + '」。');
       if (G.inspect.phase >= 3) Inspect.finish();
       EN.autoSave();
       return d.n + '：' + d.d;
@@ -14753,7 +14780,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       var found = chance(foundChance);
       var res;
       if (!found) {
-        res = { n: '未发现问题', d: '巡视组撤了，反馈会上对你这段的工作给了肯定。', e: { pr: 8, it: 5, mt: 4 } };
+        res = { n: '未发现问题', d: (ins.level || '巡视组') + '撤了，反馈会上对你这段的工作给了肯定。', e: { pr: 8, it: 5, mt: 4 } };
       } else if (G.risk < 45 && gamble === 0) {
         res = { n: '提醒谈话', d: '有群众反映，但查无实据。组织上找你谈了一次话。', e: { it: -4, pr: -2, risk: -25 } };
       } else if (G.risk < 70) {
@@ -14776,10 +14803,20 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       var G = g();
       if (!G.inspect) return { active: false };
       var i = G.inspect;
+      /* 存量存档里可能还写着「省委巡视组」，升到副国级后即时更正为中央巡视组 */
+      if (i.active && i.level !== inspectLevelOf(G.lv)) {
+        i.level = inspectLevelOf(G.lv);
+        i.name = i.level + (G.lv >= 17
+          ? '按中央统一部署进驻' + (G.unit || '所在单位')
+          : '进驻' + (G.unit || '本单位'));
+      }
+      var isCentral = i.level === '中央巡视组';
       return {
         active: !!i.active, level: i.level, phase: i.phase,
         phaseName: i.active ? INSPECT_PHASE[Math.min(i.phase, 2)].n : null,
-        phaseDesc: i.active ? INSPECT_PHASE[Math.min(i.phase, 2)].d : null,
+        phaseDesc: i.active
+          ? (isCentral ? '按中央统一部署,' : '') + INSPECT_PHASE[Math.min(i.phase, 2)].d
+          : null,
         result: i.result, lastYear: i.lastYear
       };
     }
@@ -15035,7 +15072,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     Village: Village, Report: Report, Audit: Audit,
     Dossier: Dossier, Exam: Exam,
     PETITION_TYPE: PETITION_TYPE, REVIEW_FOCUS: REVIEW_FOCUS,
-    INSPECT_DEAL: INSPECT_DEAL, REPORT_ITEMS: REPORT_ITEMS
+    INSPECT_DEAL: INSPECT_DEAL, REPORT_ITEMS: REPORT_ITEMS, inspectLevelOf: inspectLevelOf
   };
 })(window);
 
@@ -18622,9 +18659,10 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       return '<div class="opt sm2 ' + (why ? 'dis' : '') + '" onclick="APP.health(' + i + ')">' +
         '<div class="l">' + op.name +
         (op.free ? '<span class="cost free">免费·每季一次</span>' : '<span class="cost">' + (op.cost ? op.cost + ' 万' : '免费') + '</span>') +
-        (why ? '<span class="cost">' + esc(why) + '</span>' : '') + '</div>' +
+        '</div>' +
         '<div class="ds">' + op.d + '</div>' +
-        '<div class="ef">' + effLine(op.e) + '</div></div>';
+        '<div class="ef">' + effLine(op.e) +
+        (why ? '<span class="cost" style="margin-left:8px">' + esc(why) + '</span>' : '') + '</div></div>';
     }).join('') + '</div>';
     var rec = G.log.filter(function (l) { return l.t.indexOf('健康·') === 0; }).slice(0, 8);
     if (rec.length) h += '<div class="card"><div class="sect2">健康记录</div>' + rec.map(function (l) {
