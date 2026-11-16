@@ -1297,6 +1297,327 @@ window.FACE_META = {
 };
 
 /* ============================================================
+ *  avatar_catalog.js —— 头像库（300 个）与外观变体层
+ *
+ *  目录：男 150 + 女 150 = 300 个稳定头像 ID。
+ *    每个 ID 绑定：性别 / 年龄段 / 职业着装族 / 底图 / 发型 / 发色 /
+ *    眼镜 / 领带领口 / 证件照底色 / 面部小特征。
+ *  分配：按人物的性别 + 年龄 + 职业从目录里挑，尽量避开已用 ID。
+ *  儿童：3~17 岁不用成人证件照，改画专属儿童头像（幼儿/小学/中学三档）。
+ *  职业：在底图上叠制服领章、领带、听诊器等，让岗位一眼可辨。
+ *  年龄：青年/中年/老年底图池 + 老化滤镜由 avatar.js 负责，儿童由本文件负责。
+ * ============================================================ */
+(function (global) {
+  'use strict';
+
+  /* ---------------- 变体维度 ---------------- */
+  var HAIR_COLOR = [
+    { n: '乌黑', r: 26, g: 20, b: 16 },
+    { n: '深棕', r: 48, g: 33, b: 25 },
+    { n: '栗棕', r: 78, g: 50, b: 34 },
+    { n: '自然黑', r: 34, g: 27, b: 22 },
+    { n: '浅棕', r: 96, g: 66, b: 46 },
+    { n: '花白', r: 168, g: 164, b: 158 }
+  ];
+  var TIE = [
+    { n: '暗红', c: '#8d3a34' }, { n: '藏蓝', c: '#2f4568' },
+    { n: '墨绿', c: '#3d5545' }, { n: '深灰', c: '#4a4a4e' },
+    { n: '藏青', c: '#243b5c' }, { n: '紫褐', c: '#5c3f52' }
+  ];
+  var BG = [
+    { n: '浅蓝', c: '#c9dcec' }, { n: '米白', c: '#f0ece3' },
+    { n: '浅灰', c: '#d6d8d6' }, { n: '暖褐', c: '#e4d3c2' }
+  ];
+  var SKIN = ['#f7dcc1', '#f4d3b0', '#eec8a6', '#f9e0c8', '#efd0ad'];
+
+  /* 新增发型（各 8 种），与 avatar.js 里原有 8 种拼成 16 种 */
+  var HAIR_M_EXT = [
+    /* 8 偏分短发 */ '<path d="M26,33 Q27,13 50,12 Q73,13 74,33 Q70,21 58,20 Q52,26 44,22 Q33,22 26,33 Z" fill="rgba(30,23,18,0.6)"/><path d="M56,14 Q54,20 50,24" stroke="rgba(18,14,10,0.35)" stroke-width="1.2" fill="none"/>',
+    /* 9 圆寸 */ '<path d="M29,31 Q30,17 50,16 Q70,17 71,31 Q62,23 50,23 Q38,23 29,31 Z" fill="rgba(24,19,15,0.68)"/>',
+    /* 10 大背头油亮 */ '<path d="M25,34 Q28,11 50,10 Q72,11 75,34 Q71,18 50,18 Q29,18 25,34 Z" fill="rgba(22,17,13,0.75)"/><path d="M34,18 Q50,14 66,18" stroke="rgba(255,255,255,0.10)" stroke-width="1.6" fill="none"/>',
+    /* 11 碎盖 */ '<path d="M26,34 Q27,13 50,12 Q73,13 74,34 Q68,25 60,27 Q55,22 48,26 Q39,23 33,28 Q29,30 26,34 Z" fill="rgba(32,25,19,0.58)"/>',
+    /* 12 三七分 */ '<path d="M26,33 Q28,13 50,12 Q73,13 74,33 Q66,21 57,21 Q50,25 40,21 Q31,23 26,33 Z" fill="rgba(28,22,17,0.62)"/><path d="M57,13 Q55,19 51,23" stroke="rgba(16,12,9,0.4)" stroke-width="1.4" fill="none"/>',
+    /* 13 微秃分头 */ '<path d="M27,33 Q29,16 50,15 Q71,16 73,33 Q66,23 50,24 Q34,23 27,33 Z" fill="rgba(36,29,23,0.5)"/><path d="M30,26 Q38,20 46,22" stroke="rgba(226,214,196,0.22)" stroke-width="2" fill="none"/>',
+    /* 14 齐刘海短发 */ '<path d="M26,34 Q27,13 50,12 Q73,13 74,34 Q68,29 50,29 Q32,29 26,34 Z" fill="rgba(30,23,18,0.66)"/><path d="M30,29 Q40,33 50,31 Q60,33 70,29" stroke="rgba(18,14,10,0.3)" stroke-width="1.3" fill="none"/>',
+    /* 15 蓬松短发 */ '<path d="M24,34 Q26,11 50,10 Q74,11 76,34 Q70,20 62,23 Q56,17 50,22 Q43,17 37,23 Q29,20 24,34 Z" fill="rgba(34,26,20,0.6)"/>'
+  ];
+  var HAIR_F_EXT = [
+    /* 8 波波头 */ '<path d="M24,36 Q24,12 50,11 Q76,12 76,36 Q76,50 70,52 Q68,28 50,28 Q32,28 30,52 Q24,50 24,36 Z" fill="rgba(30,22,17,0.62)"/><path d="M27,46 Q27,52 31,54" stroke="rgba(20,14,10,0.3)" stroke-width="2" fill="none"/>',
+    /* 9 丸子头 */ '<path d="M26,33 Q27,12 50,11 Q73,12 74,33 Q66,22 50,22 Q34,22 26,33 Z" fill="rgba(28,21,16,0.62)"/><ellipse cx="50" cy="9" rx="11" ry="8" fill="rgba(28,21,16,0.55)"/>',
+    /* 10 双麻花 */ '<path d="M26,34 Q27,12 50,11 Q73,12 74,34 Q66,22 50,22 Q34,22 26,34 Z" fill="rgba(30,22,17,0.6)"/><path d="M27,38 Q22,50 26,60" stroke="rgba(30,22,17,0.5)" stroke-width="4" fill="none"/><path d="M73,38 Q78,50 74,60" stroke="rgba(30,22,17,0.5)" stroke-width="4" fill="none"/>',
+    /* 11 齐刘海长发 */ '<path d="M23,37 Q23,12 50,11 Q77,12 77,37 Q74,52 69,56 Q67,32 50,32 Q33,32 31,56 Q26,52 23,37 Z" fill="rgba(32,24,18,0.58)"/><path d="M27,32 Q38,37 50,34 Q62,37 73,32" stroke="rgba(20,14,10,0.3)" stroke-width="1.5" fill="none"/>',
+    /* 12 低马尾 */ '<path d="M26,34 Q27,12 50,11 Q73,12 74,34 Q66,22 50,22 Q34,22 26,34 Z" fill="rgba(26,20,15,0.64)"/><ellipse cx="76" cy="52" rx="5" ry="12" fill="rgba(26,20,15,0.48)"/>',
+    /* 13 蓬松卷发 */ '<path d="M22,38 Q22,10 50,9 Q78,10 78,38 Q76,52 68,56 Q67,30 50,30 Q33,30 32,56 Q24,52 22,38 Z" fill="rgba(38,28,21,0.58)"/><circle cx="27" cy="26" r="5" fill="rgba(38,28,21,0.4)"/><circle cx="73" cy="26" r="5" fill="rgba(38,28,21,0.4)"/>',
+    /* 14 侧分短发 */ '<path d="M24,35 Q25,12 50,11 Q75,12 76,35 Q72,40 68,39 Q66,22 52,22 Q44,26 34,23 Q28,27 24,35 Z" fill="rgba(30,23,18,0.6)"/>',
+    /* 15 盘发带刘海 */ '<path d="M25,34 Q26,12 50,11 Q74,12 75,34 Q68,27 50,28 Q32,27 25,34 Z" fill="rgba(28,21,16,0.64)"/><ellipse cx="50" cy="11" rx="15" ry="7" fill="rgba(28,21,16,0.5)"/>'
+  ];
+
+  /* ---------------- 年龄段与目录 ---------------- */
+  var BANDS = [
+    { id: '幼儿', lo: 0, hi: 6, n: 10 },
+    { id: '小学', lo: 7, hi: 12, n: 15 },
+    { id: '中学', lo: 13, hi: 17, n: 15 },
+    { id: '青年', lo: 18, hi: 37, n: 50 },
+    { id: '中年', lo: 38, hi: 54, n: 30 },
+    { id: '老年', lo: 55, hi: 99, n: 30 }
+  ];
+  var DRESS_CYCLE = ['civil', 'civil', 'civil', 'military', 'police', 'medical',
+    'business', 'teacher', 'civil', 'worker'];
+  function bandOf(age) {
+    var a = Math.max(0, Math.min(99, age | 0));
+    for (var i = 0; i < BANDS.length; i++) if (a <= BANDS[i].hi) return BANDS[i].id;
+    return '老年';
+  }
+  function isChildBand(b) { return b === '幼儿' || b === '小学' || b === '中学'; }
+
+  function build(gender) {
+    var out = [], v = 0, off = gender === '女' ? 3 : 0;
+    BANDS.forEach(function (b) {
+      for (var k = 0; k < b.n; k++) {
+        out.push({
+          v: v, g: gender, band: b.id,
+          d: isChildBand(b.id) ? 'child'
+            : DRESS_CYCLE[(v + (gender === '女' ? 2 : 0)) % DRESS_CYCLE.length],
+          i: (v * 7 + off) % 30,
+          hair: (v * 5 + 1 + off) % 16,
+          hc: (v * 7 + 2 + off) % HAIR_COLOR.length,
+          gl: (v * 3 + 1 + off) % 5,
+          tie: (v * 5 + 3 + off) % TIE.length,
+          bg: (v * 3 + 2 + off) % BG.length,
+          feat: (v * 7 + 1 + off) % 6,
+          skin: (v * 3 + off) % SKIN.length
+        });
+        v++;
+      }
+    });
+    return out;
+  }
+  var CATALOG = { '男': build('男'), '女': build('女') };
+  var TOTAL = CATALOG['男'].length + CATALOG['女'].length;   /* 300 */
+
+  /* 按性别 + 年龄 + 职业挑一个目录项 */
+  function pick(gender, dress, age, hash, avoid) {
+    var g = gender === '女' ? '女' : '男';
+    var cat = CATALOG[g], want = bandOf(age == null ? 30 : age);
+    var child = isChildBand(want);
+    /* 候选池先按年龄段圈定（年龄匹配）；职业只作排序权重，
+     * 因为制服由 outfitSvg 按实际岗位绘制，不必挤在少数几张底图里。
+     * 池子放大后同年龄段内的撞脸率明显下降。 */
+    var band = cat.filter(function (x) { return x.band === want; });
+    if (!band.length) band = cat.filter(function (x) { return isChildBand(x.band) === child; });
+    if (!band.length) band = cat;
+    var pref = band.filter(function (x) { return child || x.d === dress || x.d === 'civil'; });
+    var rest = band.filter(function (x) { return pref.indexOf(x) < 0; });
+    var ordered = pref.concat(rest);
+    var used = avoid || [];
+    var freePref = pref.filter(function (x) { return used.indexOf(x.v) < 0; });
+    var freeAll = ordered.filter(function (x) { return used.indexOf(x.v) < 0; });
+    var pool = freePref.length ? freePref : (freeAll.length ? freeAll : ordered);
+    /* 字符串哈希的低位容易聚簇（人名多为连续编号），先做一次雪崩混合，
+     * 否则同一批 NPC 会扎堆挑到同几张脸。 */
+    var hv = Math.abs(hash | 0) >>> 0;
+    hv = (hv ^ (hv >>> 15)) >>> 0;
+    hv = Math.imul(hv, 2246822519) >>> 0;
+    hv = (hv ^ (hv >>> 13)) >>> 0;
+    return pool[hv % pool.length];
+  }
+  function byId(gender, v) {
+    var cat = CATALOG[gender === '女' ? '女' : '男'];
+    return cat[Math.abs(v | 0) % cat.length];
+  }
+
+  /* ---------------- 发色 ---------------- */
+  function tintHair(svg, hcIdx, age) {
+    var hc = HAIR_COLOR[hcIdx % HAIR_COLOR.length];
+    /* 55 岁以后渐次转花白 */
+    var gray = Math.max(0, Math.min(1, ((age | 0) - 52) / 22));
+    var r = Math.round(hc.r + (190 - hc.r) * gray);
+    var g = Math.round(hc.g + (188 - hc.g) * gray);
+    var b = Math.round(hc.b + (182 - hc.b) * gray);
+    return String(svg).replace(
+      /rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/g,
+      'rgba(' + r + ',' + g + ',' + b + ',$1)');
+  }
+
+  /* ---------------- 证件照底色 ---------------- */
+  function bgSvg(bgIdx) {
+    var c = BG[bgIdx % BG.length].c;
+    return '<svg class="wr" viewBox="0 0 100 100" preserveAspectRatio="none">' +
+      '<rect width="100" height="100" fill="' + c + '" opacity="0.10"/>' +
+      '<rect width="100" height="100" fill="url(#none)" opacity="0"/></svg>';
+  }
+
+  /* ---------------- 眼镜 ---------------- */
+  function glassesSvg(glIdx) {
+    var k = glIdx % 5;
+    if (!k) return '';
+    var s = '<svg class="wr" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    if (k === 1) {           /* 金丝圆框 */
+      s += '<g stroke="#b99a5c" stroke-width="1.1" fill="none" opacity="0.85">' +
+        '<circle cx="38" cy="50" r="9"/><circle cx="62" cy="50" r="9"/>' +
+        '<path d="M47,49 Q50,47 53,49"/><path d="M29,49 L22,47"/><path d="M71,49 L78,47"/></g>';
+    } else if (k === 2) {    /* 黑方框 */
+      s += '<g stroke="#33312e" stroke-width="1.7" fill="none" opacity="0.88">' +
+        '<rect x="28" y="43" width="19" height="14" rx="2"/>' +
+        '<rect x="53" y="43" width="19" height="14" rx="2"/>' +
+        '<path d="M47,48 Q50,46 53,48"/><path d="M28,47 L21,45"/><path d="M72,47 L79,45"/></g>';
+    } else if (k === 3) {    /* 半框老花 */
+      s += '<g stroke="#7c7368" stroke-width="1.3" fill="none" opacity="0.8">' +
+        '<path d="M29,49 Q38,59 47,49"/><path d="M53,49 Q62,59 71,49"/>' +
+        '<path d="M29,49 L22,47"/><path d="M71,49 L78,47"/><path d="M47,48 Q50,46 53,48"/></g>';
+    } else {                 /* 无框 */
+      s += '<g stroke="#9a9084" stroke-width="0.9" fill="none" opacity="0.6">' +
+        '<path d="M29,48 Q38,55 47,48"/><path d="M53,48 Q62,55 71,48"/>' +
+        '<path d="M47,47 L53,47"/><path d="M29,48 L21,46"/><path d="M71,48 L79,46"/></g>';
+    }
+    return s + '</svg>';
+  }
+
+  /* ---------------- 面部小特征 ---------------- */
+  function featureSvg(featIdx, gender) {
+    var k = featIdx % 6;
+    if (!k) return '';
+    var s = '<svg class="wr" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    if (k === 1) s += '<circle cx="63" cy="66" r="1.1" fill="rgba(96,70,54,0.5)"/>';        /* 痣 */
+    else if (k === 2) s += '<g fill="rgba(198,120,110,0.28)"><ellipse cx="32" cy="63" rx="3.4" ry="2"/><ellipse cx="68" cy="63" rx="3.4" ry="2"/></g>';
+    else if (k === 3) s += '<g stroke="rgba(60,44,34,0.4)" stroke-width="0.8" fill="none"><path d="M35,43 Q41,41 46,44"/><path d="M54,44 Q59,41 65,43"/></g>';
+    else if (k === 4 && gender === '女') s += '<circle cx="24" cy="58" r="1.4" fill="#d8c08a"/><circle cx="76" cy="58" r="1.4" fill="#d8c08a"/>';
+    else if (k === 5) s += '<path d="M68,40 l4,-3" stroke="rgba(150,110,92,0.4)" stroke-width="0.9" fill="none"/>';
+    return s + '</svg>';
+  }
+
+  /* ---------------- 职业服饰层（叠在真人底图下半部） ---------------- */
+  function outfitSvg(dress, c, gender) {
+    var tie = TIE[c.tie % TIE.length].c;
+    var s = '<svg class="wr" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    if (dress === 'military') {
+      s += '<path d="M0,100 L0,86 Q20,76 38,84 L50,92 L62,84 Q80,76 100,86 L100,100 Z" fill="rgba(70,88,60,0.55)"/>';
+      s += '<g fill="#b0473c"><path d="M34,84 l8,3 l-2,6 l-8,-3 Z"/><path d="M66,84 l-8,3 l2,6 l8,-3 Z"/></g>';
+      s += '<g fill="#d8c27a"><rect x="12" y="88" width="16" height="3" rx="1"/><rect x="72" y="88" width="16" height="3" rx="1"/></g>';
+    } else if (dress === 'police') {
+      s += '<path d="M0,100 L0,86 Q20,76 38,84 L50,92 L62,84 Q80,76 100,86 L100,100 Z" fill="rgba(38,62,100,0.55)"/>';
+      s += '<g fill="#d7dde4"><path d="M34,84 l8,3 l-2,6 l-8,-3 Z"/><path d="M66,84 l-8,3 l2,6 l8,-3 Z"/></g>';
+      s += '<g fill="#c9b06a"><rect x="12" y="88" width="16" height="3" rx="1"/><rect x="72" y="88" width="16" height="3" rx="1"/></g>';
+    } else if (dress === 'medical') {
+      s += '<path d="M0,100 L0,88 Q18,78 38,86 L50,94 L62,86 Q82,78 100,88 L100,100 Z" fill="rgba(238,242,242,0.72)"/>';
+      s += '<path d="M38,86 L50,94 L62,86" stroke="rgba(150,166,172,0.7)" stroke-width="1.1" fill="none"/>';
+      s += '<g stroke="#7d8c92" stroke-width="1.4" fill="none"><path d="M32,88 Q28,96 36,99"/><path d="M68,88 Q72,96 64,99"/></g>';
+      s += '<circle cx="64" cy="99" r="3" fill="#9aa8ad"/>';
+    } else if (dress === 'worker') {
+      s += '<path d="M0,100 L0,86 Q20,78 38,85 L50,92 L62,85 Q80,78 100,86 L100,100 Z" fill="rgba(86,102,116,0.5)"/>';
+      s += '<rect x="16" y="90" width="14" height="9" rx="1" fill="rgba(255,255,255,0.18)"/>';
+      s += '<path d="M50,92 L50,100" stroke="rgba(40,50,58,0.4)" stroke-width="1.2"/>';
+    } else if (dress === 'teacher') {
+      s += '<path d="M0,100 L0,88 Q20,79 38,86 L50,93 L62,86 Q80,79 100,88 L100,100 Z" fill="rgba(140,112,78,0.38)"/>';
+      s += '<path d="M38,86 L50,93 L62,86" stroke="rgba(90,70,48,0.45)" stroke-width="1.2" fill="none"/>';
+    } else if (dress === 'business') {
+      s += '<path d="M0,100 L0,89 Q20,80 38,87 L50,94 L62,87 Q80,80 100,89 L100,100 Z" fill="rgba(108,100,90,0.34)"/>';
+      s += '<path d="M38,87 L50,94 L44,100 M62,87 L50,94 L56,100" fill="rgba(240,238,232,0.5)"/>';
+    } else {                 /* civil 西装 */
+      s += '<path d="M0,100 L0,87 Q20,77 38,85 L50,93 L62,85 Q80,77 100,87 L100,100 Z" fill="rgba(48,58,70,0.42)"/>';
+      s += '<path d="M38,85 L50,93 L43,100 M62,85 L50,93 L57,100" fill="rgba(238,238,234,0.55)"/>';
+      s += '<path d="M47,93 L50,96 L53,93 L52,100 L48,100 Z" fill="' + tie + '" opacity="0.92"/>';
+    }
+    return s + '</svg>';
+  }
+
+  /* ---------------- 儿童头像（纯 SVG 证件照，不用成人底图） ---------------- */
+  var KID_HAIR_M = [
+    '<path d="M26,36 Q26,17 50,16 Q74,17 74,36 Q68,26 50,26 Q32,26 26,36 Z" fill="HC"/>',
+    '<path d="M27,35 Q27,16 50,15 Q73,16 73,35 Q68,29 50,29 Q32,29 27,35 Z" fill="HC"/><path d="M30,29 Q40,33 50,30 Q60,33 70,29" stroke="rgba(0,0,0,0.18)" stroke-width="1.2" fill="none"/>',
+    '<path d="M26,35 Q27,15 50,14 Q73,15 74,35 Q70,24 60,27 Q54,22 48,26 Q40,22 34,27 Q29,29 26,35 Z" fill="HC"/>',
+    '<path d="M28,34 Q28,18 50,17 Q72,18 72,34 Q66,23 50,24 Q34,23 28,34 Z" fill="HC"/><path d="M56,18 Q54,24 50,27" stroke="rgba(0,0,0,0.2)" stroke-width="1.2" fill="none"/>',
+    '<path d="M25,36 Q25,15 50,14 Q75,15 75,36 Q71,25 62,28 Q55,21 50,27 Q43,21 37,28 Q29,25 25,36 Z" fill="HC"/>',
+    '<path d="M29,33 Q30,19 50,18 Q70,19 71,33 Q64,25 50,25 Q36,25 29,33 Z" fill="HC"/>',
+    '<path d="M27,35 Q28,16 50,15 Q72,16 73,35 Q67,25 58,27 Q50,20 42,27 Q33,25 27,35 Z" fill="HC"/>',
+    '<path d="M26,35 Q26,16 50,15 Q74,16 74,35 Q70,24 50,25 Q30,24 26,35 Z" fill="HC"/><path d="M33,22 Q42,18 50,21" stroke="rgba(255,255,255,0.12)" stroke-width="1.4" fill="none"/>'
+  ];
+  var KID_HAIR_F = [
+    '<path d="M23,38 Q23,14 50,13 Q77,14 77,38 Q75,50 70,53 Q68,29 50,29 Q32,29 30,53 Q25,50 23,38 Z" fill="HC"/><path d="M28,31 Q38,35 50,32 Q62,35 72,31" stroke="rgba(0,0,0,0.16)" stroke-width="1.3" fill="none"/>',
+    '<path d="M26,35 Q27,14 50,13 Q73,14 74,35 Q66,25 50,25 Q34,25 26,35 Z" fill="HC"/><ellipse cx="23" cy="42" rx="6" ry="12" fill="HC"/><ellipse cx="77" cy="42" rx="6" ry="12" fill="HC"/>',
+    '<path d="M26,35 Q27,14 50,13 Q73,14 74,35 Q66,25 50,25 Q34,25 26,35 Z" fill="HC"/><ellipse cx="26" cy="18" rx="8" ry="6" fill="HC"/><ellipse cx="74" cy="18" rx="8" ry="6" fill="HC"/>',
+    '<path d="M24,37 Q24,14 50,13 Q76,14 76,37 Q76,50 70,52 Q68,29 50,29 Q32,29 30,52 Q24,50 24,37 Z" fill="HC"/>',
+    '<path d="M23,39 Q23,13 50,12 Q77,13 77,39 Q75,54 69,58 Q67,31 50,31 Q33,31 31,58 Q25,54 23,39 Z" fill="HC"/>',
+    '<path d="M26,35 Q27,14 50,13 Q73,14 74,35 Q66,25 50,25 Q34,25 26,35 Z" fill="HC"/><ellipse cx="50" cy="11" rx="12" ry="8" fill="HC"/>',
+    '<path d="M26,35 Q27,14 50,13 Q73,14 74,35 Q66,25 50,25 Q34,25 26,35 Z" fill="HC"/><path d="M27,38 Q22,50 26,60" stroke="HC" stroke-width="5" fill="none"/><path d="M73,38 Q78,50 74,60" stroke="HC" stroke-width="5" fill="none"/>',
+    '<path d="M24,37 Q24,14 50,13 Q76,14 76,37 Q72,45 68,44 Q66,27 50,27 Q34,27 32,44 Q28,45 24,37 Z" fill="HC"/><path d="M28,30 Q38,34 50,31 Q62,34 72,30" stroke="rgba(0,0,0,0.16)" stroke-width="1.3" fill="none"/>'
+  ];
+
+  function kidHairSvg(gender, c) {
+    var arr = gender === '女' ? KID_HAIR_F : KID_HAIR_M;
+    var hc = HAIR_COLOR[c.hc % HAIR_COLOR.length];
+    var rgb = 'rgb(' + hc.r + ',' + hc.g + ',' + hc.b + ')';
+    return arr[c.hair % arr.length].replace(/HC/g, rgb);
+  }
+
+  function childSvg(gender, age, c) {
+    var a = Math.max(0, Math.min(17, age | 0));
+    var baby = a <= 6, kid = a <= 12;
+    var bg = BG[c.bg % BG.length].c;
+    var skin = SKIN[c.skin % SKIN.length];
+    var cloth = ['#5b7fa6', '#8c6a8e', '#6a8a72', '#b07850', '#4f6b86', '#8a5a5a'][c.tie % 6];
+    var rx = baby ? 29 : (kid ? 27 : 25.5);
+    var ry = baby ? 30 : (kid ? 29.5 : 29);
+    var ey = baby ? 53 : 51;
+    var er = baby ? 3.7 : (kid ? 3.4 : 3.1);
+    var shy = baby ? 84 : 82;
+
+    var s = '<svg class="wr" viewBox="0 0 100 100" preserveAspectRatio="none">';
+    s += '<rect width="100" height="100" fill="' + bg + '"/>';
+    /* 肩膀与衣服 */
+    s += '<path d="M6,100 Q10,' + shy + ' 50,' + shy + ' Q90,' + shy + ' 94,100 Z" fill="' + cloth + '"/>';
+    /* 幼儿围兜 / 小学生红领巾 / 中学生校服领 */
+    if (baby) {
+      s += '<path d="M38,82 Q50,88 62,82 L60,100 L40,100 Z" fill="#f2eee4" opacity="0.92"/>';
+      s += '<circle cx="50" cy="92" r="3.2" fill="#d8a35e" opacity="0.8"/>';
+    } else if (kid) {
+      s += '<path d="M38,82 L50,95 L62,82 L57,80 L50,87 L43,80 Z" fill="#c8382f"/>';
+      s += '<path d="M42,81 L50,88 L58,81" stroke="#9c2a24" stroke-width="1" fill="none"/>';
+    } else {
+      s += '<path d="M38,82 L50,92 L62,82 L56,80 L50,86 L44,80 Z" fill="#eef0ef"/>';
+      s += '<path d="M47,88 L50,91 L53,88 L52,100 L48,100 Z" fill="' + TIE[c.tie % TIE.length].c + '"/>';
+    }
+    /* 脖子 */
+    s += '<rect x="43" y="70" width="14" height="16" rx="6" fill="' + skin + '"/>';
+    /* 耳朵 */
+    s += '<ellipse cx="' + (50 - rx + 1) + '" cy="55" rx="4" ry="6" fill="' + skin + '"/>';
+    s += '<ellipse cx="' + (50 + rx - 1) + '" cy="55" rx="4" ry="6" fill="' + skin + '"/>';
+    /* 脸 */
+    s += '<ellipse cx="50" cy="52" rx="' + rx + '" ry="' + ry + '" fill="' + skin + '"/>';
+    /* 发型 */
+    s += kidHairSvg(gender, c);
+    /* 眉毛 */
+    s += '<g stroke="rgba(92,66,48,0.55)" stroke-width="1.1" fill="none" stroke-linecap="round">' +
+      '<path d="M37,44 Q41,42 45,44"/><path d="M55,44 Q59,42 63,44"/></g>';
+    /* 眼睛（儿童眼大、带高光） */
+    s += '<g><ellipse cx="40" cy="' + ey + '" rx="' + (er + 1) + '" ry="' + er + '" fill="#fff"/>' +
+      '<ellipse cx="60" cy="' + ey + '" rx="' + (er + 1) + '" ry="' + er + '" fill="#fff"/>' +
+      '<circle cx="40" cy="' + ey + '" r="' + (er - 0.4) + '" fill="#3b2c22"/>' +
+      '<circle cx="60" cy="' + ey + '" r="' + (er - 0.4) + '" fill="#3b2c22"/>' +
+      '<circle cx="38.8" cy="' + (ey - 1.2) + '" r="1" fill="#fff"/>' +
+      '<circle cx="58.8" cy="' + (ey - 1.2) + '" r="1" fill="#fff"/></g>';
+    /* 鼻子与嘴 */
+    s += '<path d="M50,55 Q52,60 50,61" stroke="rgba(160,112,88,0.55)" stroke-width="1" fill="none" stroke-linecap="round"/>';
+    s += '<path d="M45,66 Q50,' + (baby ? 70 : 69) + ' 55,66" stroke="#c4796c" stroke-width="1.3" fill="none" stroke-linecap="round"/>';
+    /* 腮红：幼儿明显，随年龄变淡 */
+    var blush = baby ? 0.26 : (kid ? 0.16 : 0.09);
+    s += '<g fill="rgba(224,126,116,' + blush + ')">' +
+      '<ellipse cx="31" cy="61" rx="5" ry="3"/><ellipse cx="69" cy="61" rx="5" ry="3"/></g>';
+    s += '</svg>';
+    return s;
+  }
+
+  global.AVATAR_LIB = {
+    CATALOG: CATALOG, BANDS: BANDS, TOTAL: TOTAL,
+    HAIR_COLOR: HAIR_COLOR, TIE: TIE, BG: BG, SKIN: SKIN,
+    HAIR_M_EXT: HAIR_M_EXT, HAIR_F_EXT: HAIR_F_EXT,
+    bandOf: bandOf, isChildBand: isChildBand, pick: pick, byId: byId,
+    tintHair: tintHair, bgSvg: bgSvg, glassesSvg: glassesSvg,
+    featureSvg: featureSvg, outfitSvg: outfitSvg, childSvg: childSvg
+  };
+})(window);
+
+/* ============================================================
  *  avatar.js —— 真人证件照头像
  *
  *  底图：男 20 / 女 20 张真人证件照，每张带「着装族」标签
@@ -1316,6 +1637,8 @@ window.FACE_META = {
 
   var FACES = global.FACES || { '男': [], '女': [] };
   var META = global.FACE_META || { '男': [], '女': [] };
+  /* 300 个头像的目录与变体层（男女各 150） */
+  var LIB = global.AVATAR_LIB || null;
 
   function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 
@@ -1326,16 +1649,21 @@ window.FACE_META = {
     police: { n: '警服', c: '#2b4a6f' },
     medical: { n: '白大褂', c: '#5a7f8c' },
     business: { n: '便装', c: '#6b645a' },
-    teacher: { n: '教师', c: '#8a6f4c' }
+    teacher: { n: '教师', c: '#8a6f4c' },
+    worker: { n: '工装', c: '#566674' },
+    child: { n: '学生', c: '#7c8fa6' }
   };
   /* 职务关键词 → 着装族（按人物自述的职业/职务判定） */
   var JOB2DRESS = [
-    [/武警|解放军|军人|部队|人武部|军分区|省军区|司令员|参谋长|政委|排长|连长|营长|团长|旅长|师长|军长|士官|列兵/, 'military'],
-    [/警察|公安|刑警|交警|狱警|看守所|特勤|消防|警司|警督|警监|派出所|警衔/, 'police'],
-    [/医生|护士|卫生|医药|临床|门诊|疾控|院長|院长|主治医师|白大褂/, 'medical'],
-    [/教师|老师|教授|讲师|校长|教务|班主任|学院|学校|小学|中学/, 'teacher'],
-    [/企业|公司|老板|经理|董事长|厂长|个体|经营|商户|销售|司机|运输|工人|务工|打工|车间|超市|理发|保险|快递|装修|务农|农活/, 'business'],
-    [/记者|媒体|编辑|宣传|报社|电视台|公务员|科员|主任|书记|局长|厅长|县长|市长|部长|秘书|干事|职员/, 'civil']
+    [/武警|解放军|军人|部队|人武部|军分区|省军区|司令员|参谋长|政委|排长|连长|营长|团长|旅长|师长|军长|士官|列兵|军委|战区/, 'military'],
+    [/警察|公安|刑警|交警|狱警|看守所|特勤|消防|警司|警督|警监|派出所|警衔|检察院|检察长|法院|法官|司法|监狱/, 'police'],
+    [/医生|护士|卫生|医药|临床|门诊|疾控|院長|院长|主治医师|白大褂|医院|药店/, 'medical'],
+    [/教师|老师|教授|讲师|校长|教务|班主任|学院|学校|小学|中学|幼儿园|幼师|辅导员/, 'teacher'],
+    [/工人|务工|打工|车间|装修|务农|农活|种植|养殖|农机|快递|外卖|搬运|矿工|建筑|纺织|食堂|保洁|保安|司机|运输|修理/, 'worker'],
+    [/企业|公司|老板|经理|董事长|厂长|个体|经营|商户|销售|超市|理发|保险|银行|会计|财务|店长|摊主/, 'business'],
+    [/学生|在读|小学|中学|大学|求学|未入学|学龄前/, 'child'],
+    [/已退休|退休|离休|赋闲|无业|待业/, 'civil'],
+    [/记者|媒体|编辑|宣传|报社|电视台|公务员|科员|主任|书记|局长|厅长|县长|市长|部长|秘书|干事|职员|机关|党委|政府|委员会|办公室|站|所|局|厅|部/, 'civil']
   ];
   function dressOf(job, trackId) {
     if (trackId === 'jz' || trackId === 'wj') return 'military';
@@ -1387,12 +1715,18 @@ window.FACE_META = {
       /* 只保留最接近的三张，保证年龄感 */
       return byDress.slice(0, 3);
     }
-    /* 兜底：civil 里挑年龄最接近的 */
-    var t2 = age || 27;
+    /* 兜底：新增的 worker / child 等族没有专属底图，
+     * 改用「同年龄段全部 civil 底图」，让 300 个头像尽量铺开、少撞脸。 */
+    var t2 = age || 27, want2 = bandOf(t2), civBand = [];
+    for (var q = 0; q < civil.length; q++) {
+      var mq = meta[civil[q]];
+      if ((mq.band || bandOf(mq.a || 27)) === want2) civBand.push(civil[q]);
+    }
+    if (civBand.length) return civBand;
     civil.sort(function (a, b) {
       return Math.abs((meta[a].a || 27) - t2) - Math.abs((meta[b].a || 27) - t2);
     });
-    return civil.length ? civil.slice(0, 3) : meta.map(function (_, i) { return i; });
+    return civil.length ? civil.slice(0, 8) : meta.map(function (_, i) { return i; });
   }
 
   /* ---------------- 发型层（SVG，叠加在证件照上方） ---------------- */
@@ -1416,6 +1750,12 @@ window.FACE_META = {
     /* 6 刘海 */ '<path d="M26,34 Q27,12 50,11 Q73,12 74,34 Q68,26 50,27 Q32,26 26,34 Z" fill="rgba(28,20,16,0.66)"/><path d="M30,30 Q40,36 50,34 Q60,36 70,30" stroke="rgba(20,14,10,0.3)" stroke-width="1.4" fill="none"/>',
     /* 7 中长发 */ '<path d="M25,35 Q26,12 50,11 Q74,12 75,35 Q72,45 68,46 Q66,26 50,26 Q34,26 32,46 Q28,45 25,35 Z" fill="rgba(30,22,18,0.56)"/>'
   ];
+
+  /* 拼成 16 种发型（原 8 + 目录新增 8） */
+  if (LIB) {
+    HAIR_M = HAIR_M.concat(LIB.HAIR_M_EXT);
+    HAIR_F = HAIR_F.concat(LIB.HAIR_F_EXT);
+  }
 
   /* ---------------- 年龄 → 滤镜 ---------------- */
   function filterOf(age) {
@@ -1556,7 +1896,9 @@ window.FACE_META = {
     police: { n: '警', c: '#2b4a6f' },
     medical: { n: '医', c: '#5a7f8c' },
     business: { n: '', c: '' },
-    teacher: { n: '', c: '' }
+    teacher: { n: '师', c: '#8a6f4c' },
+    worker: { n: '工', c: '#566674' },
+    child: { n: '', c: '' }
   };
 
   /**
@@ -1570,45 +1912,76 @@ window.FACE_META = {
     opts = opts || {};
     var g = gender === '女' ? '女' : '男';
     var pool = FACES[g] || FACES['男'];
-    var meta = META[g] || [];
+    var a = clamp(age == null ? 27 : age, 0, 99);
 
-    var idx, hair, seed;
-    if (id && typeof id === 'object') { idx = id.i; hair = id.hair; seed = id.seed; }
-    else { idx = id; hair = null; seed = null; }
+    var idx, hair, seed, v, c;
+    if (id && typeof id === 'object') {
+      idx = id.i; hair = id.hair; seed = id.seed; v = id.v;
+    } else {
+      idx = id; hair = null; seed = null; v = (id == null ? null : id);
+    }
+    /* 旧存档里只有 {i,hair,seed}，从 seed 派生一个稳定的头像 ID */
+    if (v == null && seed != null) v = Math.abs(seed | 0) % 150;
+    if (v == null) v = Math.abs((idx | 0) * 7 + 3) % 150;
+    c = LIB ? LIB.byId(g, v) : null;
+    if (!c) c = {
+      v: v, i: Math.abs(idx | 0) % 30, hair: 0, hc: 0, gl: 0,
+      tie: 0, bg: 0, feat: 0, skin: 0, band: '青年', d: 'civil'
+    };
+    if (hair === null || hair === undefined) hair = c.hair;
+    if (seed === null || seed === undefined) seed = Math.abs(v * 13 + c.i);
 
-    /* 职业着装：优先取显式指定的，其次按职业/职系推断 */
     var dress = opts.dress || dressOf(opts.job, opts.track);
     if (opts.outfit === 'military') dress = 'military';
     else if (opts.outfit === 'police') dress = 'police';
+    /* 「学生」标签出现在 18 岁以上（大学生）时，按成人西装处理 */
+    if (dress === 'child' && a >= 18) dress = 'civil';
 
-    var p = poolOf(g, dress, age);
-    if (!p.length) p = poolOf(g, 'civil', age);
-    /* 底图：若 id 落在目标族内直接用，否则按 id 取族内第 (id % n) 张 */
-    var pi;
-    if (p.indexOf(idx) >= 0) pi = idx;
-    else pi = p[Math.abs(idx | 0) % p.length];
-    var src = pool[pi] || pool[0];
-
-    /* 发型：未指定则按 id 派生，保证同一底图不同发型 */
-    var hairArr = g === '男' ? HAIR_M : HAIR_F;
-    if (hair === null || hair === undefined) hair = (Math.abs(idx | 0) * 7 + pi) % hairArr.length;
-    /* 秃顶发型只对年长者生效 */
-    if (g === '男' && hair === 6 && age < 45) hair = 1;
-
-    var sd = (seed === null || seed === undefined) ? (Math.abs(idx | 0) * 13 + pi) : seed;
     var size = opts.size || 62;
     var ring = opts.ring || '#d8cfbb';
-    var badge = BADGE[dress] || BADGE.civil;
-
     var st = 'width:' + size + 'px;height:' + size + 'px;border:2px solid ' + ring + ';';
     var s = '<span class="face" style="' + st + '">';
-    s += '<img src="' + src + '" alt="" style="filter:' + filterOf(age) + '">';
-    /* 发型层（年轻人更明显，年长后压低以露出白发效果） */
-    var hairOp = age < 50 ? 1 : clamp(1 - (age - 50) / 40, 0.35, 1);
-    s += '<svg class="wr hair" viewBox="0 0 100 100" preserveAspectRatio="none" style="opacity:' +
-      hairOp.toFixed(2) + '">' + hairArr[hair % hairArr.length] + '</svg>';
-    /* 老化层 */
-    s += ageSvg(age, g, sd);
+
+    /* ---------------- 儿童：专属证件照，不用成人底图 ---------------- */
+    if (LIB && a < 18) {
+      s += LIB.childSvg(g, a, c);
+      s += '</span>';
+      return s;
+    }
+
+    /* ---------------- 成人：真人底图 + 变体层 ---------------- */
+    var p = poolOf(g, dress, a);
+    if (!p.length) p = poolOf(g, 'civil', a);
+    var pi;
+    if (p.indexOf(c.i) >= 0) pi = c.i;
+    else pi = p[Math.abs(c.i | 0) % p.length];
+    var src = pool[pi] || pool[0];
+
+    var hairArr = g === '男' ? HAIR_M : HAIR_F;
+    /* 秃顶发型只对年长者生效 */
+    if (g === '男' && hair === 6 && a < 45) hair = 1;
+    var sd = seed;
+    var badge = BADGE[dress] || BADGE.civil;
+
+    s += '<img src="' + src + '" alt="" style="filter:' + filterOf(a) + '">';
+    if (LIB) {
+      /* 证件照底色 */
+      s += LIB.bgSvg(c.bg);
+      /* 发型（16 种）+ 发色（6 种，年长自动转花白） */
+      var hairOp = a < 50 ? 1 : clamp(1 - (a - 50) / 40, 0.35, 1);
+      s += '<svg class="wr hair" viewBox="0 0 100 100" preserveAspectRatio="none" style="opacity:' +
+        hairOp.toFixed(2) + '">' + LIB.tintHair(hairArr[hair % hairArr.length], c.hc, a) + '</svg>';
+      /* 职业服饰：领章 / 领带 / 听诊器 / 工装 */
+      s += LIB.outfitSvg(dress, c, g);
+      /* 眼镜与面部小特征 */
+      s += LIB.glassesSvg(c.gl);
+      s += LIB.featureSvg(c.feat, g);
+    } else {
+      s += '<svg class="wr hair" viewBox="0 0 100 100" preserveAspectRatio="none">' +
+        hairArr[hair % hairArr.length] + '</svg>';
+    }
+    /* 老化层放最上：皱纹 / 白发 / 胡须 / 老年斑 */
+    s += ageSvg(a, g, sd);
     if (badge.n) s += '<i class="fbadge" style="background:' + badge.c + '">' + badge.n + '</i>';
     s += '</span>';
     return s;
@@ -1617,55 +1990,90 @@ window.FACE_META = {
   /* 兼容旧调用名 */
   function svg(gender, id, age, opts) { return html(gender, id, age, opts); }
 
+  /* 本会话已分配过的头像 ID：多数调用点不传 avoid，
+   * 这里兜一层自动去重，避免「同一个单位里好几个人同一张脸」。
+   * 只记最近 90 个，重开新局时旧记录自然淘汰，不会把 150 个名额占死。 */
+  var SEEN = { '男': [], '女': [] };
+  function resetSeen() { SEEN['男'] = []; SEEN['女'] = []; }
+
   /* 生成一个稳定的头像标识（用于 NPC / 家人）
-   * avoid：已占用的底图下标，传了就尽量避开，防止一家人撞同一张脸 */
-  function makeId(gender, seedStr, dressHint, avoid) {
+   * 从 300 个头像目录里按「性别 + 年龄 + 职业」取一个，并尽量避开已用 ID。
+   * 兼容旧存档：返回对象仍带 i / hair / seed，另加 v（0..149 的目录编号）。 */
+  function makeId(gender, seedStr, dressHint, avoid, age) {
     var h = 0, str = String(seedStr || '') + (dressHint || '');
     for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0x7fffffff;
     var gn = gender === '女' ? '女' : '男';
-    var n = (FACES[gn] || []).length || 20;
     var base = Math.abs(h);
-    var idx = base % n;
-    if (avoid && avoid.length) {
+    var dress = dressOf(dressHint, null);
+    var a = (age == null ? 30 : age);
+    var allAvoid = (avoid || []).concat(LIB ? SEEN[gn].slice() : []);
+    var c = LIB ? LIB.pick(gn, dress, a, base, allAvoid) : null;
+    var n = (FACES[gn] || []).length || 30;
+    var idx = c ? c.i : base % n;
+    var v = c ? c.v : base % 150;
+    if (!LIB && avoid && avoid.length) {
       for (var t = 1; t < n; t++) {
         var cand = (base + t * 7 + t * t) % n;
-        if (avoid.indexOf(cand) < 0) { idx = cand; break; }
+        if (avoid.indexOf(cand) < 0) { idx = cand; v = cand; break; }
       }
     }
-    return { i: idx, hair: Math.abs(base >> 3) % 8, seed: Math.abs(base >> 6) % 997 };
+    if (LIB) {
+      SEEN[gn].push(v);
+      if (SEEN[gn].length > 90) SEEN[gn].shift();
+    }
+    return {
+      i: idx,
+      hair: c ? c.hair : Math.abs(base >> 3) % 16,
+      seed: Math.abs(base >> 6) % 997,
+      v: v
+    };
   }
-  /* 收集已占用的底图下标（同性别） */
+  /* 收集已占用的头像 ID（同性别）；旧存档没有 v 就退回底图下标 */
   function usedIdx(list, gender) {
     var out = [];
     (list || []).forEach(function (x) {
-      if (x && x.i != null && (!x.gender || x.gender === gender || (x.gender === '女') === (gender === '女'))) {
-        out.push(x.i);
+      if (x && (x.v != null || x.i != null) &&
+        (!x.gender || x.gender === gender || (x.gender === '女') === (gender === '女'))) {
+        out.push(x.v != null ? x.v : x.i);
       }
     });
     return out;
   }
 
-  /* 头像一览（调试用） */
+  /* 头像一览（调试用）：展示 300 个头像在各年龄段 / 职业族里的代表 */
   function sheet() {
     var h = '<div style="display:flex;flex-wrap:wrap">';
     ['男', '女'].forEach(function (g) {
-      var n = (FACES[g] || []).length;
-      for (var i = 0; i < n; i++) {
-        var d = (META[g] || [])[i] ? (META[g][i]).d : 'civil';
-        h += '<div style="margin:3px;text-align:center;font-size:10px">' +
-          html(g, i, 26, { size: 74, dress: d }) +
-          html(g, i, 46, { size: 74, dress: d }) +
-          html(g, i, 64, { size: 74, dress: d }) +
-          '<div>' + g + i + '·' + d + '</div></div>';
+      var cat = LIB ? LIB.CATALOG[g] : null;
+      var samples = [];
+      if (cat) {
+        LIB.BANDS.forEach(function (b) {
+          var list = cat.filter(function (x) { return x.band === b.id; });
+          samples.push(list[0], list[Math.floor(list.length / 2)], list[list.length - 1]);
+        });
+      } else {
+        var n = (FACES[g] || []).length;
+        for (var q = 0; q < Math.min(6, n); q++) samples.push({ v: q, i: q, d: 'civil', band: '青年' });
       }
+      samples.forEach(function (c) {
+        var demoAge = c.band === '幼儿' ? 4 : c.band === '小学' ? 9 :
+          c.band === '中学' ? 15 : c.band === '中年' ? 46 : c.band === '老年' ? 66 : 27;
+        h += '<div style="margin:3px;text-align:center;font-size:10px">' +
+          html(g, c.v, demoAge, { size: 74, dress: c.d === 'child' ? 'child' : c.d }) +
+          '<div>' + g + '#' + c.v + ' · ' + c.band + ' · ' + c.d + '</div></div>';
+      });
     });
     return h + '</div>';
   }
 
   global.Avatar = {
-    html: html, svg: svg, sheet: sheet, makeId: makeId, usedIdx: usedIdx,
+    html: html, svg: svg, sheet: sheet, makeId: makeId, usedIdx: usedIdx, resetSeen: resetSeen,
     dressOf: dressOf, poolOf: poolOf,
-    count: (FACES['男'] || []).length,
+    /* 头像库总数：男 150 + 女 150 = 300 */
+    count: LIB ? LIB.TOTAL : (FACES['男'] || []).length,
+    total: LIB ? LIB.TOTAL : (FACES['男'] || []).length * 2,
+    perGender: 150,
+    catalog: LIB ? LIB.CATALOG : null,
     DRESS: DRESS, filterOf: filterOf
   };
 })(window);
@@ -1675,6 +2083,15 @@ window.FACE_META = {
  *  每发布一个新版本，在这个数组最前面加一条 {v, d: [...]} 即可。
  */
 window.CHANGELOG = [
+  {
+    v: '1.9.188.1116',
+    d: [
+      '头像库从 60 张扩到 300 个（男 150 · 女 150）。每个头像绑定固定的发型、发色、眼镜、领带领口、证件照底色和面部特征，NPC 按性别+年龄+职业分池分配，尽量避开已用头像，撞脸大幅减少',
+      '新增 80 张儿童头像：幼儿 / 小学生 / 中学生三档，圆脸大眼、红领巾或校服领，不再拿成人证件照当小孩',
+      '岗位与着装对上：军装领章、警服领章、白大褂听诊器、工装口袋、教师套装、西装领带，另加军/警/医/师/工角标',
+      '年龄匹配加强：青年 / 中年 / 老年各用对应底图并叠老化滤镜；发色随年龄转花白，秃顶发型只对年长者生效；开局换头像也改为在 150 个里随机'
+    ]
+  },
   {
     v: '1.9.183',
     d: [
@@ -2053,7 +2470,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.183.1110';
+  var VERSION = '1.9.188.1116';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -10400,22 +10817,22 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     if (!g.usedTopics) g.usedTopics = [];
     if (!g.committeeLog) g.committeeLog = [];
     (g.elders || []).forEach(function (e) {
-      if (!e.face) e.face = global.Avatar.makeId(e.gender, (e.id || '') + (e.name || ''), e.job);
+      if (!e.face) e.face = global.Avatar.makeId(e.gender, (e.id || '') + (e.name || ''), e.job, null, e.age);
     });
     (g.npcs || []).forEach(function (n) {
-      if (!n.face) n.face = global.Avatar.makeId(n.gender, String(n.id || '') + (n.kind || ''), n.unit || n.kind);
+      if (!n.face) n.face = global.Avatar.makeId(n.gender, String(n.id || '') + (n.kind || ''), n.unit || n.kind, null, n.age);
     });
     (g.siblings || []).forEach(function (b) {
-      if (!b.face) b.face = global.Avatar.makeId(b.gender, (b.id || '') + (b.name || ''), b.job);
+      if (!b.face) b.face = global.Avatar.makeId(b.gender, (b.id || '') + (b.name || ''), b.job, null, b.age);
       if (b.tieV === undefined) b.tieV = 55;
       if (b.favor === undefined) b.favor = 0;
       if (b.asked === undefined) b.asked = 0;
     });
     (g.children || []).forEach(function (c) {
-      if (!c.face) c.face = global.Avatar.makeId(c.gender, 'c' + (c.name || ''), 'civil');
+      if (!c.face) c.face = global.Avatar.makeId(c.gender, 'c' + (c.name || ''), 'civil', null, c.ageF);
     });
     if (g.spouse && !g.spouse.face) {
-      g.spouse.face = global.Avatar.makeId(g.spouse.gender, g.spouse.name + g.spouse.job, g.spouse.job);
+      g.spouse.face = global.Avatar.makeId(g.spouse.gender, g.spouse.name + g.spouse.job, g.spouse.job, null, g.spouse.age);
     }
     if (g.spouse && !g.spouse.siblings) {
       g.spouse.siblings = buildSiblings(g, g.spouse.age, 'sp');
@@ -10596,12 +11013,12 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var motherSur = pick(D.SURNAME);
     while (motherSur === mySurname(g)) motherSur = pick(D.SURNAME);
     var fa = makeElder(g, '父亲', '男', g.age + rint(24, 29), a0.u.n, false, mySurname(g));
-    fa.face = familyFace(g, '男', 'father' + g.name, fa.job);
+    fa.face = familyFace(g, '男', 'father' + g.name, fa.job, fa.age);
     g.elders.push(fa);
     var mo = makeElder(g, '母亲', '女', g.age + rint(22, 27), a0.u.n, false, motherSur);
-    mo.face = familyFace(g, '女', 'mother' + g.name, mo.job);
+    mo.face = familyFace(g, '女', 'mother' + g.name, mo.job, mo.age);
     g.elders.push(mo);
-    g.elders.forEach(function (e) { e.face = global.Avatar.makeId(e.gender, e.id + e.name, e.job); });
+    g.elders.forEach(function (e) { e.face = global.Avatar.makeId(e.gender, e.id + e.name, e.job, null, e.age); });
 
     /* 自己的兄弟姐妹（非独生子女） */
     g.siblings = buildSiblings(g, g.age, 'me');
@@ -10621,18 +11038,20 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
   /* 生成一位长辈 */
   /* 家族头像：同性别之间避开已用的底图，防止一家人撞同一张脸 */
-  function familyFace(g, gender, seedStr, hint) {
+  function familyFace(g, gender, seedStr, hint, age) {
     var used = [];
+    function push(f) {
+      if (f && (f.v != null || f.i != null)) used.push(f.v != null ? f.v : f.i);
+    }
     (g.elders || []).forEach(function (e) {
-      if (e.face && e.face.i != null && ((e.gender === '女') === (gender === '女'))) used.push(e.face.i);
+      if ((e.gender === '女') === (gender === '女')) push(e.face);
     });
     (g.siblings || []).forEach(function (b) {
-      if (b.face && b.face.i != null && ((b.gender === '女') === (gender === '女'))) used.push(b.face.i);
+      if ((b.gender === '女') === (gender === '女')) push(b.face);
     });
-    if (g.spouse && g.spouse.face && g.spouse.face.i != null &&
-      ((g.spouse.gender === '女') === (gender === '女'))) used.push(g.spouse.face.i);
-    if (g.face && g.face.i != null && ((g.gender === '女') === (gender === '女'))) used.push(g.face.i);
-    return global.Avatar.makeId(gender, seedStr, hint, used);
+    if (g.spouse && (g.spouse.gender === '女') === (gender === '女')) push(g.spouse.face);
+    if ((g.gender === '女') === (gender === '女')) push(g.face);
+    return global.Avatar.makeId(gender, seedStr, hint, used, age);
   }
 
   function makeElder(g, kind, gender, age, hometown, coLive, surname) {
@@ -10703,7 +11122,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       away: chance(0.35),                       /* 是否在外地 */
       marry: pick(D3.SIB_MARRY),
       tie: tie.n, tieV: clamp(tie.v + rint(-8, 10), 5, 98), tieD: tie.d,
-      face: familyFace(g, gender, 'sib' + rint(1, 99999) + kind.k, job.n),
+      face: familyFace(g, gender, 'sib' + rint(1, 99999) + kind.k, job.n, age),
       lastMeet: 0, favor: 0, asked: 0
     };
   }
@@ -10747,7 +11166,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       sb.age = clamp(age, 16, 62);
       sb.older = older;
       /* 配偶的兄弟姐妹：职业跟着对方家世走 */
-      if (sibJobPool) { sb.job = pick(sibJobPool); sb.face = global.Avatar.makeId(gender, sb.id + sb.name, sb.job); }
+      if (sibJobPool) { sb.job = pick(sibJobPool); sb.face = global.Avatar.makeId(gender, sb.id + sb.name, sb.job, null, sb.age); }
       /* 称谓与长幼一致 */
       sb.kind = (gender === '男') ? (older ? '哥哥' : '弟弟') : (older ? '姐姐' : '妹妹');
       sb.id = 's' + (seedName || 'me') + i + '_' + rint(100, 999);
@@ -10778,8 +11197,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     while (inlawMotherSur === spSur) inlawMotherSur = pick(D.SURNAME);
     var a = makeElder(g, fk, '男', sp.age + rint(23, 28), ht, false, spSur);
     var b = makeElder(g, mk, '女', sp.age + rint(21, 26), ht, false, inlawMotherSur);
-    a.face = familyFace(g, '男', 'inlawF' + sp.name, a.job);
-    b.face = familyFace(g, '女', 'inlawM' + sp.name, b.job);
+    a.face = familyFace(g, '男', 'inlawF' + sp.name, a.job, a.age);
+    b.face = familyFace(g, '女', 'inlawM' + sp.name, b.job, b.age);
     /* 职务用结婚时抽到的那一个，与家世严格对应 */
     var pPost = sp.pPost || '普通职工';
     a.job = pPost;
@@ -10788,8 +11207,8 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     a.name = spSur + String(sp.pName || a.name).slice(spSur.length);
     /* 母亲那一方：同层次但低调些 */
     b.job = motherJobOf(sp.famTier || '', pPost);
-    a.face = global.Avatar.makeId('男', a.id + a.name, a.job);
-    b.face = global.Avatar.makeId('女', b.id + b.name, b.job);
+    a.face = global.Avatar.makeId('男', a.id + a.name, a.job, null, a.age);
+    b.face = global.Avatar.makeId('女', b.id + b.name, b.job, null, b.age);
     a.love = clamp(56 + rint(-6, 10), 35, 88);
     b.love = clamp(58 + rint(-6, 10), 35, 90);
     /* 家世越好，对方父母收入越高、健康与资源也更好 */
@@ -10895,7 +11314,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       apptLog: [],                                   /* 任免记录 */
       isKin: false,          /* 真亲缘由家庭数据生成，普通同事一律不是 */
       avoidKin: false,       /* 是否属于需要回避的亲属关系（同姓同宗时才置位） */
-      face: global.Avatar.makeId(gender, String(g.npcSeq) + k.k + (opt.unit || ''), opt.unit || k.k)
+      face: global.Avatar.makeId(gender, String(g.npcSeq) + k.k + (opt.unit || ''), opt.unit || k.k, global.Avatar.usedIdx(g.npcs, gender), age)
     };
   }
 
@@ -11958,7 +12377,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   /* 结婚后：给配偶配头像，并生成对方的兄弟姐妹 */
   function onMarry(g) {
     if (!g.spouse) return;
-    if (!g.spouse.face) g.spouse.face = global.Avatar.makeId(g.spouse.gender, g.spouse.name + g.spouse.job, g.spouse.job);
+    if (!g.spouse.face) g.spouse.face = global.Avatar.makeId(g.spouse.gender, g.spouse.name + g.spouse.job, g.spouse.job, null, g.spouse.age);
     if (!g.spouse.siblings) {
       g.spouse.siblings = buildSiblings(g, g.spouse.age, 'sp');
       g.spouse.isOnlyChild = g.spouse.siblings.length === 0;
@@ -12235,7 +12654,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
           name: familyName(g, mySurname(g), cg, cg === '男' ? D.CHILD_NAME_M : D.CHILD_NAME_F),
           gender: cg, ageF: 0, study: rint(40, 60), health: rint(60, 80),
           mood: rint(55, 75), talent: rint(30, 50), trained: 0, edu: '未入学',
-          face: global.Avatar.makeId(cg, 'c' + rint(10000, 99999), 'civil')
+          face: global.Avatar.makeId(cg, 'c' + rint(10000, 99999), 'civil', null, 0)
         };
         g.children.push(child);
         g.pres = Math.round(clamp(g.pres + 4, 0, 100));
@@ -12716,7 +13135,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       career: [], apptLog: [],
       kin: true, isKin: true,
       faction: null,
-      face: global.Avatar.makeId(o.gender, o.name + (o.job || o.kind), o.job || o.kind)
+      face: global.Avatar.makeId(o.gender, o.name + (o.job || o.kind), o.job || o.kind, null, o.age)
     };
     g.npcs.push(n2);
     return n2;
@@ -20149,7 +20568,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       EN.wipeAll();
       S.screen = 'create'; S.step = 1; S.page = 'home'; S.sub = null;
       S.c = {
-        name: randName('男'), gender: '男', ethnic: D.ETHNIC[0], avatarId: EN.rint(0, 14),
+        name: randName('男'), gender: '男', ethnic: D.ETHNIC[0], avatarId: EN.rint(0, 149),
         script: null, talent: null, uni: null, major: null, route: null,
         family: null, era: null, town: null,
         talentPool: sample(D.TALENTS, 3), uniPool: sample(D.UNIVERS, 3)
@@ -20170,12 +20589,12 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     },
     setGender: function (gd) {
       c().gender = gd;
-      c().avatarId = EN.rint(0, 14);
+      c().avatarId = EN.rint(0, 149);
       if (!c().name) c().name = randName(gd);
       UI.render();
     },
     setEth: function (v) { c().ethnic = v; },
-    randAvatar: function () { c().avatarId = EN.rint(0, 14); UI.render(); },
+    randAvatar: function () { c().avatarId = EN.rint(0, 149); UI.render(); },
     setScript: function (i) { c().script = i < 0 ? null : D.SCRIPTS[i]; UI.render(); },
     setTalent: function (i) { c().talent = c().talentPool[i]; UI.render(); },
     setUni: function (i) { c().uni = c().uniPool[i]; UI.render(); },
