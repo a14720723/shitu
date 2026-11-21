@@ -798,6 +798,25 @@ select.sel {
 .li.me { background: #fdf8ef; border-radius: 8px; padding: 6px 8px; margin-left: -8px; }
 .chip.on { background: var(--red); color: #fff; border-color: var(--red); }
 
+/* ---------------- 结局 · 一生任职履历 ---------------- */
+.sect-n { display: inline-block; margin-left: 8px; font-size: 11px; font-weight: 400; color: #9a9186; }
+.posttl { max-height: 380px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 2px 2px; }
+.pt-item { display: flex; gap: 9px; }
+.pt-rail { flex: 0 0 16px; width: 16px; position: relative; }
+.pt-rail::before { content: ''; position: absolute; left: 6px; top: 12px; bottom: -12px; width: 1px; background: var(--line); }
+.pt-item:last-child .pt-rail::before { display: none; }
+.pt-dot { position: absolute; left: 2px; top: 4px; width: 9px; height: 9px; border-radius: 50%;
+  background: #e6dcc6; border: 2px solid #fff; box-shadow: 0 0 0 1px #d6c9ae; }
+.pt-item.cur .pt-dot { background: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.pt-body { flex: 1; min-width: 0; padding: 0 0 11px; margin-bottom: 4px; border-bottom: 1px dashed var(--line); }
+.pt-item:last-child .pt-body { border-bottom: 0; margin-bottom: 0; }
+.pt-hd { display: flex; align-items: center; gap: 8px; font-size: 11.5px; }
+.pt-hd b { color: var(--gold); font-size: 11.5px; }
+.pt-hd span { color: #9a9186; }
+.pt-hd em { margin-left: auto; font-style: normal; color: #8a827a; white-space: nowrap; }
+.pt-job { font-size: 13.5px; font-weight: 600; color: #2f2b26; margin: 3px 0 2px; line-height: 1.4; }
+.pt-sub { font-size: 11.5px; color: #6b645a; }
+
 </style>
 </head>
 <body>
@@ -2168,13 +2187,15 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
-    v: '1.9.195.1117',
+    v: '1.9.197.1121',
     d: [
       '头像重做：去掉盖在真人证件照上的假发色块、矢量眼镜、皱纹线条和衣服贴纸——底图本来就很干净，叠层反而把照片弄脏了。现在只保留照片本身，配柔和内阴影与小巧职业角标',
       '300 个头像的差异改由「水平镜像 / 轻微裁切 / 色温明暗」呈现，不破坏照片质感；同单位 NPC 自动避开已用头像，撞脸更少',
       'NPC 岗位匹配修正：老年的军 / 警 / 医干部不再回退成西装照只挂角标，仍穿本系统制服；法院、检察院、司法不再误穿警服',
       '年龄更贴近现实：55~61 岁归中年池（灰发而非满头白发），62 岁起才用老年底图；57 岁的副省长不会再看着像 75 岁',
-      '儿童头像重画：渐变肤色与发色、虹膜高光、睫毛、柔和腮红、红领巾 / 校服领 / 围兜，男孩不再长睫毛；48px 小尺寸自动精简细线，五官不再糊成一团'
+      '儿童头像重画：渐变肤色与发色、虹膜高光、睫毛、柔和腮红、红领巾 / 校服领 / 围兜，男孩不再长睫毛；48px 小尺寸自动精简细线，五官不再糊成一团',
+      '结局页新增「一生任职履历」：按入仕到终任的先后顺序，逐任列出起止年月、任职年限、级别与官阶名、单位职务、任职地，共几任一眼看清',
+      '「这一生的账」的履职行补上「历经 N 任」；履历表可上下滚动，长生涯也不会把结局页撑得没边'
     ]
   },
   {
@@ -2555,7 +2576,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.195.1117';
+  var VERSION = '1.9.197.1121';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -20488,7 +20509,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       '<span>' + esc(R.real) + '</span></div></div>' +
       '<div class="mrow"><div class="ml">最后岗位</div><div class="mv"><b>' + esc(G.unit) + esc(G.post) + '</b></div></div>' +
       '<div class="mrow"><div class="ml">履职</div><div class="mv"><b>' + served + ' 年</b>' +
-      '<span>晋升 ' + G.promoteCount + ' 次</span></div></div>' +
+      '<span>晋升 ' + G.promoteCount + ' 次 · 历经 ' + (G.postHistory || []).length + ' 任</span></div></div>' +
       '<div class="mrow"><div class="ml">政绩 / 过失</div><div class="mv"><b>' + Math.round(G.mt) + ' / ' + over + '</b></div></div>' +
       '<div class="mrow"><div class="ml">口碑 / 人脉</div><div class="mv"><b>' + Math.round(G.pr) + ' / ' + Math.round(G.nw) + '</b></div></div>' +
       '<div class="mrow"><div class="ml">清廉 / 党性</div><div class="mv"><b>' + Math.round(G.it) + ' / ' + Math.round(G.dy) + '</b></div></div>' +
@@ -20499,6 +20520,51 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       '<div class="mrow"><div class="ml">起点</div><div class="mv"><span>' +
       esc(G.script.name + ' · ' + G.talent.name + ' · ' + G.uni.name) + '</span></div></div>' +
       '</div>';
+
+    /* ---------------- 一生任职履历（按时间正序：入仕 → 终任） ---------------- */
+    var ph = (G.postHistory || []).slice().reverse();
+    var mon = function (q) { return ('0' + (((q | 0) - 1) * 3 + 1)).slice(-2); };
+    var postRows = ph.map(function (p, i) {
+      var fy = p.fromY || G.year, fq = p.fromQ || 1;
+      var nx = ph[i + 1];
+      var ty = nx ? (nx.fromY || G.year) : G.year;
+      var tq = nx ? (nx.fromQ || 1) : G.q;
+      var qs = Math.max(1, (ty * 4 + tq) - (fy * 4 + fq));
+      var yrs = Math.round(qs / 4 * 10) / 10;
+      var rk;
+      try {
+        rk = EN.rankTitleOf ? EN.rankTitleOf(G.track.id, p.lv, p.unit, p.post).name
+                            : D.rankNameOf(G.track.id, p.lv).name;
+      } catch (e) { rk = '第 ' + p.lv + ' 级'; }
+      return {
+        from: fy + '-' + mon(fq),
+        to: i === ph.length - 1 ? (G.year + ' 年 · 终任') : (ty + '-' + mon(tq)),
+        lv: p.lv, rank: rk, unit: p.unit || '', post: p.post || '',
+        place: p.place || '', yrs: yrs,
+        first: i === 0, last: i === ph.length - 1
+      };
+    });
+
+    h += '<div class="sect">一生任职履历' +
+      '<span class="sect-n">' + postRows.length + ' 任 · ' + served + ' 年</span></div>';
+    h += '<div class="card posttl">';
+    if (!postRows.length) {
+      h += '<div class="hint">本局未登记任职记录。</div>';
+    } else {
+      h += postRows.map(function (r, i) {
+        return '<div class="pt-item' + (r.last ? ' cur' : '') + '">' +
+          '<div class="pt-rail"><i class="pt-dot"></i></div>' +
+          '<div class="pt-body">' +
+            '<div class="pt-hd"><b>' + (r.first ? '入仕' : '第 ' + (i + 1) + ' 任') + '</b>' +
+              '<span>' + r.from + ' — ' + r.to + '</span>' +
+              '<em>' + r.yrs + ' 年</em></div>' +
+            '<div class="pt-job">' + esc(r.unit) + ' ' + esc(r.post) + '</div>' +
+            '<div class="pt-sub">第 ' + r.lv + ' 级 · ' + esc(r.rank) +
+              (r.place ? '　|　' + esc(r.place) : '') + '</div>' +
+          '</div></div>';
+      }).join('');
+    }
+    h += '</div>';
 
     var myRank = 1;
     try { myRank = SYS.Rank.meIndex('lv'); } catch (e) { myRank = 1; }
