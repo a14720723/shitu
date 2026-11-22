@@ -817,6 +817,17 @@ select.sel {
 .pt-job { font-size: 13.5px; font-weight: 600; color: #2f2b26; margin: 3px 0 2px; line-height: 1.4; }
 .pt-sub { font-size: 11.5px; color: #6b645a; }
 
+/* ---------------- 人际关系 · 具体岗位信息 ---------------- */
+.relrow { align-items: flex-start; }
+.relrow > .face { margin-top: 2px; flex: 0 0 auto; }
+.relrow .go { align-self: center; }
+.rjob { font-size: 12.5px; font-weight: 600; color: #2f2b26;
+  line-height: 1.45; margin: 3px 0 1px; word-break: break-all; }
+.rsub { font-size: 11px; color: #6b645a; line-height: 1.5; }
+.rduty { font-size: 11px; color: #8a6a2f; line-height: 1.5; margin-top: 1px; }
+.rtag { display: inline-block; font-size: 10px; padding: 0 4px;
+  border-radius: 3px; background: #ece7dc; color: #7a705e; }
+
 </style>
 </head>
 <body>
@@ -1791,8 +1802,11 @@ window.FACE_META = {
    * 优先挑同年龄段的底图；该族没有同年龄段的，就挑年龄最接近的。 */
   /* 有专属制服底图的族：宁可用年轻制服照 + 老化滤镜，
    * 也不要回退成西装照只挂个角标——老将军、老公安局长仍应穿制服。 */
-  var UNIFORM = { military: 1, police: 1, medical: 1 };
+  var UNIFORM = { military: 1, police: 1, medical: 1, teacher: 1, business: 1, worker: 1 };
+  /* 岗位族 → 底图族：武警用军装，法检司用西装（靠角标区分） */
+  var DRESS_ALIAS = { wj: 'military', court: 'civil', procu: 'civil', justice: 'civil' };
   function poolOf(gender, dress, age) {
+    dress = DRESS_ALIAS[dress] || dress;
     var meta = META[gender] || [];
     var want = bandOf(age || 27);
     var byBand = [], byDress = [], civil = [];
@@ -2000,8 +2014,12 @@ window.FACE_META = {
     military: { n: '军', c: '#4c5c3c' },
     police: { n: '警', c: '#2b4a6f' },
     medical: { n: '医', c: '#5a7f8c' },
-    business: { n: '', c: '' },
+    business: { n: '企', c: '#8a6a2f' },
     teacher: { n: '师', c: '#8a6f4c' },
+    procu: { n: '检', c: '#8a4a3a' },
+    court: { n: '法', c: '#4d4a70' },
+    justice: { n: '司', c: '#3f6b5f' },
+    wj: { n: '武', c: '#2f4a6d' },
     worker: { n: '工', c: '#566674' },
     child: { n: '', c: '' }
   };
@@ -2187,15 +2205,40 @@ window.FACE_META = {
  */
 window.CHANGELOG = [
   {
-    v: '1.9.197.1121',
+    v: '1.9.209.1122',
+    d: [
+      '修复同僚职务越级：原来只按单位系统取一套固定首长称谓，导致 5 级挂「司令员」、3 级挂「副司令员」。现在同僚岗位由「单位层级 + 本人级别 + 上下级关系」共同决定，乡镇单位最多到主任/所长，县区最多到局长，中央部委的正副部长要 16 级以上',
+      '全 16 类系统 × 5 个层级 × 6 个玩家级别共 5280 人次校验通过：低级别不再出现司令员/厅长/部长/总队长，高级别不再顶着科员/干事头衔；NPC 自己升、降、平调后也会按新级别重配岗位',
+      '修正单位层级误判：「酒坊镇工业园区」不再因「园区」的区字被当成县级，「公安部 / 司法部 / 国家税务总局 / 中央广播电视总台」等中央机关不再被当成县级；老存档打开人际关系页会自动重算错误岗位',
+      '人际关系全面重做：同僚不再只写「分管副职 / 业务骨干」这类泛称，按你所在单位的系统生成现实具体岗位（如「彭城市公安局 党委委员、副局长」「刑侦支队 支队长」），并标出分管领域、任职地、职级与系统标签',
+      '政法线同僚头像修正：公安系统的上级 / 同级 / 下级改穿警服证件照并带「警」角标；法院、检察院、司法、武警、国企、医院、学校分别带「法 / 检 / 司 / 武 / 企 / 医 / 师」角标，12 条路线全部按系统匹配',
+      '岗位按系统细分到 17 类：教育局归行政（不再被当成学校）、投资促进局不再被当成国企，人大政协用「主任/秘书长」、群团用「主席」、广电用「台长/总编辑」、开发区用「管委会主任」，不再一律叫书记或局长',
+      '人物详情页补全岗位信息：现任机构与职务、分管、职级、任职地、共事单位、政治面貌、上级主管机关；老存档打开人际关系页会自动补全，不用重开档',
+      '顺手修掉待办日志里冒出的「undefined」字样：部分事件选项没有附带说明文字，拼接时把空值写成了字面量，结局页「一生纪要」里也能看到。现在没有说明就只显示效果与评分'
+    ]
+  },
+  {
+    v: '1.9.204',
+    d: [
+      '人际关系按系统生成具体岗位与职业头像：公安系统上级/同级/下级穿警服带「警」角标，法院/检察/司法/武警/国企/医院/学校分别带对应角标，共 17 类单位岗位细分',
+      '人物详情页补全分管、任职地、共事单位、政治面貌、上级主管机关；顺手修掉待办日志里的「undefined」字样'
+    ]
+  },
+  {
+    v: '1.9.197',
+    d: [
+      '结局页新增「一生任职履历」：按入仕到终任的先后顺序，逐任列出起止年月、任职年限、级别与官阶名、单位职务、任职地',
+      '「这一生的账」的履职行补上「历经 N 任」；履历表可上下滚动，长生涯也不会把结局页撑得没边'
+    ]
+  },
+  {
+    v: '1.9.195',
     d: [
       '头像重做：去掉盖在真人证件照上的假发色块、矢量眼镜、皱纹线条和衣服贴纸——底图本来就很干净，叠层反而把照片弄脏了。现在只保留照片本身，配柔和内阴影与小巧职业角标',
       '300 个头像的差异改由「水平镜像 / 轻微裁切 / 色温明暗」呈现，不破坏照片质感；同单位 NPC 自动避开已用头像，撞脸更少',
       'NPC 岗位匹配修正：老年的军 / 警 / 医干部不再回退成西装照只挂角标，仍穿本系统制服；法院、检察院、司法不再误穿警服',
       '年龄更贴近现实：55~61 岁归中年池（灰发而非满头白发），62 岁起才用老年底图；57 岁的副省长不会再看着像 75 岁',
       '儿童头像重画：渐变肤色与发色、虹膜高光、睫毛、柔和腮红、红领巾 / 校服领 / 围兜，男孩不再长睫毛；48px 小尺寸自动精简细线，五官不再糊成一团',
-      '结局页新增「一生任职履历」：按入仕到终任的先后顺序，逐任列出起止年月、任职年限、级别与官阶名、单位职务、任职地，共几任一眼看清',
-      '「这一生的账」的履职行补上「历经 N 任」；履历表可上下滚动，长生涯也不会把结局页撑得没边'
     ]
   },
   {
@@ -2576,7 +2619,7 @@ window.CHANGELOG = [
  * ============================================================ */
 (function (global) {
   'use strict';
-  var VERSION = '1.9.197.1121';
+  var VERSION = '1.9.209.1122';
   var CDX = 'shitu_codex_v1';
   var CLD = 'shitu_cloud_v1';
   var DSEEN = 'shitu_disc_seen';
@@ -5993,6 +6036,696 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
   global.DATA3.badgeOf = badgeOf;
   global.DATA3.genPoliceNo = genPoliceNo;
   global.DATA3.genMilNo = genMilNo;
+})(window);
+
+/* ============================================================
+ *  staff.js —— 同僚岗位生成器
+ *  按「玩家所在单位所属系统 + 任职层级 + 上下级关系」生成现实的
+ *  具体岗位，而不是「分管副职 / 业务骨干」这类泛称。
+ *  同时给出着装族，让人际关系里的头像与岗位对得上。
+ * ============================================================ */
+(function (global) {
+  'use strict';
+  var D = global.DATA, EN = global.ENGINE;
+
+  /* 系统归类：顺序敏感，先判专门系统，最后兜底到行政 */
+  var SYS = [
+    { k: 'police', n: '公安', dress: 'police',
+      re: /公安|警察|派出所|刑警|交警|治安|禁毒|特警|看守所|拘留所|警务|督察/ },
+    { k: 'procu', n: '检察', dress: 'procu', re: /人民检察院|检察/ },
+    { k: 'court', n: '审判', dress: 'court', re: /人民法院|人民法庭|仲裁/ },
+    { k: 'justice', n: '司法行政', dress: 'justice',
+      re: /司法|社区矫正|公证|法律援助|监狱管理/ },
+    { k: 'military', n: '国防动员', dress: 'military',
+      re: /人武部|人民武装部|军分区|省军区|国防动员|人民防空|民兵|军供|国防部|中央军委|战区|联合参谋|政治工作部|后勤保障|装备发展/ },
+    { k: 'wj', n: '武警', dress: 'wj',
+      re: /武警|消防救援|特勤|警卫局|总队|支队|大队|中队/ },
+    { k: 'medical', n: '医疗卫生', dress: 'medical',
+      re: /医院|卫生院|疾控|疾病预防|妇幼|中医|保健|医学科学/ },
+    /* 不带「教育」二字：教育局 / 教育厅是行政机关，不是学校 */
+    { k: 'teacher', n: '教育科研', dress: 'teacher',
+      re: /学校|学院|大学|中学|党校|职业技术|图书馆|博物馆|科技馆|文化馆|研究院|科学院/ },
+    /* 只认企业后缀，避免「投资促进局」「能源局」被当成国企 */
+    { k: 'business', n: '国企', dress: 'business',
+      re: /集团|有限公司|股份|控股|城投|交投|水务集团|燃气集团|自来水公司|公共交通|轨道交通|农商行|供销社|粮站|机场集团|港口集团|矿业/ },
+    /* 这四个要先于党群兜底：人大叫「主任」、群团叫「主席」、
+       电视台叫「台长」、管委会叫「主任」，都不是「书记/局长」 */
+    { k: 'rd', n: '人大政协', dress: 'civil', re: /人大|政协/ },
+    { k: 'qt', n: '群团', dress: 'civil',
+      re: /总工会|工会|团委|妇联|残联|科协|文联|工商联|红十字/ },
+    { k: 'xc', n: '宣传文化', dress: 'civil',
+      re: /广播电视台|融媒体|报社|广电总台|新闻出版|电影|电视台|日报/ },
+    { k: 'kf', n: '开发区', dress: 'civil',
+      re: /经济技术开发区|高新技术产业开发区|自贸|保税区|新区管委会|管委会|工业园区|招商服务/ },
+    { k: 'party', n: '党群', dress: 'civil',
+      re: /党委|组织部|纪委|宣传部|统战|政法委|机关工委|巡察/ },
+    { k: 'gov', n: '行政', dress: 'civil', re: /.*/ }
+  ];
+  function sysOf(unit) {
+    var u = String(unit || '');
+    for (var i = 0; i < SYS.length; i++) if (SYS[i].re.test(u)) return SYS[i];
+    return SYS[SYS.length - 1];
+  }
+
+  /* 单位所在层级：沿用引擎的判定，拿不到就自己按字面猜 */
+  function tierOf(unit) {
+    var u = String(unit || '');
+    /* 「工业园区 / 经济技术开发区 / 新区」里的「区」不是行政区划，先剔除，
+       否则「酒坊镇工业园区」会被误判成县级、「易水州经济技术开发区」误判成县级 */
+    var t = u.replace(/工业园区|经济技术开发区|高新技术产业开发区|经济开发区|高新技术产业园区|自贸片区|保税区|新区|园区|景区|社区|小区/g, '');
+    /* 中央机关：不带任何地方字样 */
+    var CENTRAL = /^(中共中央|国务院|中央军委|全国|中华全国|国家|中国|最高|云澜国|公安部|司法部|教育部|外交部|财政部|退役军人事务部|应急管理部|水利部|农业农村部|商务部|文化和旅游部|自然资源部|生态环境部|交通运输部|工业和信息化部|科学技术部|民政部|人力资源和社会保障部|住房和城乡建设部|中国人民银行|审计署|武警部队|中国人民解放军|新华社|人民日报社|中央广播电视总台)/;
+    if (CENTRAL.test(t) && !/省|市|县|区|镇|乡|街道/.test(t)) return 'nat';
+    if (/镇|乡|街道|村/.test(t)) return 'town';
+    if (/县|区|旗/.test(t)) return 'county';
+    if (/市|州/.test(t)) return 'city';
+    if (/省|自治区/.test(t)) return 'prov';
+    return 'county';
+  }
+  /* 内设机构的规模词：县大队 / 市支队 / 省总队 / 中央局 */
+  function scale(tier, words) {
+    var i = tier === 'town' || tier === 'county' ? 0 :
+      tier === 'city' ? 1 : tier === 'prov' ? 2 : 3;
+    return words[Math.min(i, words.length - 1)];
+  }
+
+  /* ============================================================
+   *  级别带：与 NPC 官阶一一对应，杜绝「5 级司令员」这种越级
+   *  0 办事 / 1 乡科副 / 2 乡科正 / 3 县处副 / 4 县处正
+   *  5 厅局副 / 6 厅局正 / 7 省部副 / 8 省部正及以上
+   * ============================================================ */
+  function gradeOf(lv) {
+    var v = Math.max(1, Math.min(20, lv | 0));
+    if (v <= 2) return 0;
+    if (v <= 4) return 1;
+    if (v <= 6) return 2;
+    if (v <= 8) return 3;
+    if (v <= 10) return 4;
+    if (v <= 13) return 5;
+    if (v === 14) return 6;
+    if (v === 15) return 7;
+    return 8;
+  }
+  /* 单位层级能容纳的最高级别带：乡镇最多正股，县区最多正处 */
+  var TIER_CAP = { town: 2, county: 4, city: 6, prov: 8, nat: 8 };
+  /* 职务角色的高低顺序 */
+  var ROLE_ORDER = ['staff', 'secDep', 'sec', 'dep', 'head'];
+
+  /* 各系统 × 各层级的首长 / 副职 / 内设机构 / 办事人员称谓。
+     minHead：给「一把手」所需的最低级别带；minDep：给副职所需的最低级别带。 */
+  function C(head, dep, sec, secDep, staff, ph, pd, mh, md) {
+    return { head: head, dep: dep, sec: sec, secDep: secDep, staff: staff,
+      ph: ph || '', pd: pd || '', minHead: mh, minDep: md };
+  }
+  var CHIEF = {
+    gov: {
+      town:   C('主任', '副主任', '股长', '副股长', '科员', '', '', 2, 2),
+      county: C('局长', '副局长', '科长', '副科长', '科员', '党组书记、', '党组成员、', 4, 3),
+      city:   C('局长', '副局长', '科长', '副科长', '主任科员', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('厅长', '副厅长', '处长', '副处长', '主任科员', '党组书记、', '党组成员、', 6, 5),
+      nat:    C('部长', '副部长', '司长', '副司长', '主任科员', '党组书记、', '党组成员、', 8, 6)
+    },
+    police: {
+      town:   C('所长', '副所长', '中队长', '副中队长', '民警', '', '', 2, 2),
+      county: C('局长', '副局长', '大队长', '副大队长', '民警', '党委书记、', '党委委员、', 4, 3),
+      city:   C('局长', '副局长', '支队长', '副支队长', '民警', '党委书记、', '党委委员、', 6, 5),
+      prov:   C('厅长', '副厅长', '总队长', '副总队长', '民警', '党委书记、', '党委委员、', 7, 5),
+      nat:    C('部长', '副部长', '局长', '副局长', '民警', '党委书记、', '党委委员、', 8, 6)
+    },
+    procu: {
+      town:   C('主任', '副主任', '科长', '副科长', '书记员', '', '', 2, 2),
+      county: C('检察长', '副检察长', '主任', '副主任', '检察官助理', '党组书记、', '党组成员、', 4, 3),
+      city:   C('检察长', '副检察长', '主任', '副主任', '检察官助理', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('检察长', '副检察长', '主任', '副主任', '检察官助理', '党组书记、', '党组成员、', 7, 5),
+      nat:    C('检察长', '副检察长', '厅长', '副厅长', '检察官助理', '党组书记、', '党组成员、', 8, 6)
+    },
+    court: {
+      town:   C('庭长', '副庭长', '审判员', '助理审判员', '书记员', '', '', 2, 2),
+      county: C('院长', '副院长', '庭长', '副庭长', '审判员', '党组书记、', '党组成员、', 4, 3),
+      city:   C('院长', '副院长', '庭长', '副庭长', '审判员', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('院长', '副院长', '庭长', '副庭长', '审判员', '党组书记、', '党组成员、', 7, 5),
+      nat:    C('院长', '副院长', '庭长', '副庭长', '审判员', '党组书记、', '党组成员、', 8, 6)
+    },
+    justice: {
+      town:   C('所长', '副所长', '科员', '科员', '科员', '', '', 2, 2),
+      county: C('局长', '副局长', '科长', '副科长', '科员', '党组书记、', '党组成员、', 4, 3),
+      city:   C('局长', '副局长', '科长', '副科长', '科员', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('厅长', '副厅长', '处长', '副处长', '主任科员', '党组书记、', '党组成员、', 7, 5),
+      nat:    C('部长', '副部长', '司长', '副司长', '主任科员', '党组书记、', '党组成员、', 8, 6)
+    },
+    military: {
+      town:   C('主任', '副主任', '科长', '副科长', '干事', '', '', 2, 2),
+      county: C('部长', '副部长', '科长', '副科长', '干事', '', '', 4, 3),
+      city:   C('司令员', '副司令员', '科长', '副科长', '参谋', '', '', 6, 5),
+      prov:   C('司令员', '副司令员', '处长', '副处长', '参谋', '', '', 7, 5),
+      nat:    C('部长', '副部长', '局长', '副局长', '参谋', '', '', 8, 6)
+    },
+    wj: {
+      town:   C('中队长', '副中队长', '排长', '副排长', '战士', '', '', 2, 2),
+      county: C('大队长', '副大队长', '中队长', '副中队长', '战士', '', '', 4, 3),
+      city:   C('支队长', '副支队长', '大队长', '副大队长', '警官', '', '', 6, 5),
+      prov:   C('总队长', '副总队长', '支队长', '副支队长', '警官', '', '', 7, 5),
+      nat:    C('司令员', '副司令员', '局长', '副局长', '警官', '', '', 8, 6)
+    },
+    medical: {
+      town:   C('院长', '副院长', '主任', '副主任', '医师', '', '', 2, 2),
+      county: C('院长', '副院长', '主任', '副主任', '医师', '党委书记、', '党委委员、', 4, 3),
+      city:   C('院长', '副院长', '主任', '副主任', '医师', '党委书记、', '党委委员、', 6, 5),
+      prov:   C('院长', '副院长', '处长', '副处长', '医师', '党委书记、', '党委委员、', 7, 5),
+      nat:    C('院长', '副院长', '司长', '副司长', '医师', '党组书记、', '党组成员、', 8, 6)
+    },
+    teacher: {
+      town:   C('校长', '副校长', '主任', '副主任', '教师', '', '', 2, 2),
+      county: C('校长', '副校长', '主任', '副主任', '教师', '党委书记、', '党委委员、', 4, 3),
+      city:   C('校长', '副校长', '主任', '副主任', '教师', '党委书记、', '党委委员、', 6, 5),
+      prov:   C('校长', '副校长', '处长', '副处长', '教师', '党委书记、', '党委委员、', 7, 5),
+      nat:    C('校长', '副院长', '司长', '副司长', '教师', '党委书记、', '党委委员、', 8, 6)
+    },
+    business: {
+      town:   C('经理', '副经理', '部门经理', '副经理', '职员', '', '', 2, 2),
+      county: C('经理', '副经理', '部门经理', '副经理', '职员', '', '', 4, 3),
+      city:   C('总经理', '副总经理', '部门经理', '副经理', '职员', '党委书记、', '党委委员、', 6, 5),
+      prov:   C('董事长', '副总经理', '部门经理', '副经理', '职员', '党委书记、', '党委委员、', 7, 5),
+      nat:    C('董事长', '副总经理', '部门经理', '副经理', '职员', '党组书记、', '党组成员、', 8, 6)
+    },
+    rd: {
+      town:   C('主任', '副主任', '科长', '副科长', '科员', '', '', 2, 2),
+      county: C('主任', '副主任', '科长', '副科长', '科员', '', '', 4, 3),
+      city:   C('主任', '副主任', '处长', '副处长', '科员', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('主任', '副主任', '处长', '副处长', '科员', '党组书记、', '党组成员、', 7, 5),
+      nat:    C('主任', '副主任', '局长', '副局长', '主任科员', '党组书记、', '党组成员、', 8, 6)
+    },
+    qt: {
+      town:   C('主席', '副主席', '科长', '副科长', '科员', '', '', 2, 2),
+      county: C('主席', '副主席', '部长', '副部长', '科员', '党组书记、', '党组成员、', 4, 3),
+      city:   C('主席', '副主席', '部长', '副部长', '科员', '党组书记、', '党组成员、', 6, 5),
+      prov:   C('主席', '副主席', '部长', '副部长', '科员', '党组书记、', '党组成员、', 7, 5),
+      nat:    C('主席', '副主席', '局长', '副局长', '主任科员', '党组书记、', '党组成员、', 8, 6)
+    },
+    xc: {
+      town:   C('站长', '副站长', '主任', '副主任', '编辑', '', '', 2, 2),
+      county: C('台长', '副台长', '主任', '副主任', '记者', '党委书记、', '党委委员、', 4, 3),
+      city:   C('台长', '副台长', '主任', '副主任', '记者', '党委书记、', '党委委员、', 6, 5),
+      prov:   C('台长', '副台长', '处长', '副处长', '编辑', '党委书记、', '党委委员、', 7, 5),
+      nat:    C('台长', '副台长', '局长', '副局长', '编辑', '党组书记、', '党组成员、', 8, 6)
+    },
+    kf: {
+      town:   C('主任', '副主任', '科长', '副科长', '科员', '', '', 2, 2),
+      county: C('管委会主任', '副主任', '局长', '副局长', '科员', '党工委书记、', '党工委委员、', 4, 3),
+      city:   C('管委会主任', '副主任', '局长', '副局长', '科员', '党工委书记、', '党工委委员、', 6, 5),
+      prov:   C('管委会主任', '副主任', '处长', '副处长', '主任科员', '党工委书记、', '党工委委员、', 7, 5),
+      nat:    C('主任', '副主任', '局长', '副局长', '主任科员', '党组书记、', '党组成员、', 8, 6)
+    },
+    party: {
+      town:   C('书记', '副书记', '科长', '副科长', '干事', '', '', 2, 2),
+      county: C('书记', '副书记', '科长', '副科长', '干事', '', '', 4, 3),
+      city:   C('书记', '副书记', '处长', '副处长', '干事', '', '', 6, 5),
+      prov:   C('书记', '副书记', '处长', '副处长', '干事', '', '', 7, 5),
+      nat:    C('书记', '副书记', '局长', '副局长', '干事', '', '', 8, 6)
+    }
+  };
+
+  /* 上级主管机关：乡镇→县、县→市、市→省、省/中央→中央部委 */
+  var ORG = {
+    police:  { county: '公安局', city: '公安局', prov: '公安厅', nat: '公安部' },
+    procu:   { county: '人民检察院', city: '人民检察院', prov: '人民检察院', nat: '最高人民检察院' },
+    court:   { county: '人民法院', city: '中级人民法院', prov: '高级人民法院', nat: '最高人民法院' },
+    justice: { county: '司法局', city: '司法局', prov: '司法厅', nat: '司法部' },
+    military:{ county: '人民武装部', city: '军分区', prov: '省军区', nat: '中央军委国防动员部' },
+    wj:      { county: '武警大队', city: '武警支队', prov: '武警总队', nat: '武警部队总部' },
+    medical: { county: '卫生健康局', city: '卫生健康委员会', prov: '卫生健康委员会', nat: '国家卫生健康委员会' },
+    teacher: { county: '教育局', city: '教育局', prov: '教育厅', nat: '教育部' },
+    business:{ county: '国有资产监督管理局', city: '国有资产监督管理委员会', prov: '国有资产监督管理委员会', nat: '国务院国有资产监督管理委员会' },
+    rd:      { county: '人大常委会办公室', city: '人大常委会办公厅', prov: '人大常委会办公厅', nat: '全国人大常委会办公厅' },
+    qt:      { county: '总工会', city: '总工会', prov: '总工会', nat: '中华全国总工会' },
+    xc:      { county: '宣传部', city: '宣传部', prov: '宣传部', nat: '中央宣传部' },
+    kf:      { county: '发展和改革局', city: '发展和改革委员会', prov: '发展和改革委员会', nat: '国家发展和改革委员会' },
+    party:   { county: '委组织部', city: '委组织部', prov: '委组织部', nat: '中共中央有关部门' },
+    gov:     { county: '政府办公室', city: '政府办公室', prov: '政府办公厅', nat: '国务院办公厅' }
+  };
+  function parentOrg(g, unit, sys) {
+    var tier = tierOf(unit);
+    var up = tier === 'town' ? 'county' : tier === 'county' ? 'city' :
+      tier === 'city' ? 'prov' : 'nat';
+    var pl = (EN && EN.placeOf) ? EN.placeOf(g) : null;
+    var parts = String((pl && pl.full) || '').split(/[>＞]/);
+    var place = up === 'county' ? (parts[2] || '') : up === 'city' ? (parts[1] || '') :
+      up === 'prov' ? (parts[0] || '') : '';
+    var name = (ORG[sys.k] || ORG.gov)[up] || '主管部门';
+    return place + name;
+  }
+
+  /* 各系统的岗位池。每项：[职务, 内设机构, 分管领域]
+   * 内设机构为空表示就在机关本部；分管领域为空表示不细分。 */
+  var POOL = {
+    police: {
+      lead: [
+        ['党委书记、局长', '', '全面工作、队伍与警务保障'],
+        ['局长', '', '公安业务与执法规范化'],
+        ['政委', '', '政治工作、纪检与队伍建设'],
+        ['副厅长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['党委委员、副局长', '', '刑侦、治安与法制'],
+        ['副局长', '', '交通管理、警卫与应急处置'],
+        ['政治部主任', '政治部', '人事、教育与警衔管理'],
+        ['纪委书记、警务督察长', '警务督察', '执纪监督与执法督察']
+      ],
+      sub: [
+        ['支队长', '刑侦', '刑事案件侦破'],
+        ['支队长', '治安', '治安管理与重点行业'],
+        ['支队长', '交警', '道路交通秩序与车管'],
+        ['所长', '派出所', '辖区警务与基层基础'],
+        ['主任', '指挥中心', '接处警与情指行一体化'],
+        ['支队长', '法制', '案件审核与行政复议']
+      ]
+    },
+    procu: {
+      lead: [
+        ['党组书记、检察长', '', '全面工作与检察委员会'],
+        ['检察长', '', '公诉与法律监督'],
+        ['党组副书记、副检察长', '', '日常业务与队伍建设'],
+        ['副检察长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['党组成员、副检察长', '', '刑事检察与侦查监督'],
+        ['副检察长', '', '民事行政检察与公益诉讼'],
+        ['政治部主任', '政治部', '干部人事与教育培训'],
+        ['检察委员会专职委员', '', '重大案件审议']
+      ],
+      sub: [
+        ['主任', '刑事检察', '审查逮捕与公诉'],
+        ['主任', '公益诉讼检察', '公益诉讼与行政违法监督'],
+        ['主任', '案件管理', '案件流转与质量评查'],
+        ['主任', '控告申诉检察', '信访与司法救助']
+      ]
+    },
+    court: {
+      lead: [
+        ['党组书记、院长', '', '全面工作与审判委员会'],
+        ['院长', '', '审判工作与司法改革'],
+        ['党组副书记、副院长', '', '日常审判管理与队伍建设'],
+        ['副院长', '@parent', '对口审判业务指导']
+      ],
+      peer: [
+        ['党组成员、副院长', '', '刑事审判与扫黑除恶'],
+        ['副院长', '', '民商事审判与破产清算'],
+        ['政治部主任', '政治部', '人事与法官培训'],
+        ['审判委员会专职委员', '', '疑难案件审议']
+      ],
+      sub: [
+        ['庭长', '刑事审判', '一审刑事案件'],
+        ['庭长', '民事审判', '合同、侵权与家事案件'],
+        ['局长', '执行', '生效判决执行'],
+        ['庭长', '立案', '立案登记与诉讼服务']
+      ]
+    },
+    justice: {
+      lead: [
+        ['党组书记、局长', '', '全面工作与依法治理'],
+        ['局长', '', '司法行政与法治政府建设'],
+        ['党组副书记、副局长', '', '社区矫正与安置帮教'],
+        ['副厅长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['党组成员、副局长', '', '普法与法律援助'],
+        ['副局长', '', '社区矫正与监狱戒毒'],
+        ['政治部主任', '政治部', '干部人事与警务管理'],
+        ['办公室主任', '办公室', '综合协调与文稿']
+      ],
+      sub: [
+        ['科长', '社区矫正管理', '矫正对象监管与帮扶'],
+        ['主任', '法律援助中心', '法律援助与值班律师'],
+        ['所长', '司法所', '人民调解与普法'],
+        ['科长', '行政执法协调监督', '执法监督与行政复议']
+      ]
+    },
+    military: {
+      lead: [
+        ['司令员', '', '全面工作与战备训练'],
+        ['政治委员', '', '政治工作与双拥'],
+        ['参谋长', '', '动员准备与军地协调'],
+        ['副部长', '@parent', '国防动员与民兵预备役']
+      ],
+      peer: [
+        ['副司令员', '', '战备执勤与民兵训练'],
+        ['副政治委员', '', '政治工作与纪律检查'],
+        ['政治工作部主任', '政治工作部', '宣传、组织与干部'],
+        ['处长', '保障处', '后勤与装备保障']
+      ],
+      sub: [
+        ['部长', '动员处', '兵役征集与国防动员'],
+        ['科长', '军事科', '民兵集训与战备'],
+        ['主任', '政治工作科', '思想教育与优抚'],
+        ['站长', '民兵训练基地', '基地训练与保障']
+      ]
+    },
+    wj: {
+      lead: [
+        ['司令员、党委副书记', '', '全面工作与执勤处突'],
+        ['政治委员、党委书记', '', '政治工作与队伍建设'],
+        ['参谋长', '', '执勤编排与训练'],
+        ['副参谋长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['副司令员', '', '执勤与反恐处突'],
+        ['副政治委员', '', '纪检与政治工作'],
+        ['政治工作部主任', '政治工作部', '组织、宣传与干部'],
+        ['保障部部长', '保障部', '后勤、装备与营房']
+      ],
+      sub: [
+        ['支队长', '执勤支队', '固定执勤与处突'],
+        ['大队长', '特勤大队', '反恐突击与抢险'],
+        ['主任', '作战勤务', '勤务编排与指挥'],
+        ['教导员', '基层中队', '基层思想政治与训练']
+      ]
+    },
+    medical: {
+      lead: [
+        ['党委书记、院长', '', '全面工作与学科建设'],
+        ['院长', '', '医疗质量与运营管理'],
+        ['党委副书记、副院长', '', '护理、院感与药事'],
+        ['副主任', '@parent', '对口业务指导与行业管理']
+      ],
+      peer: [
+        ['党委委员、副院长', '', '临床业务与急诊救治'],
+        ['副院长', '', '科研教学与人才培养'],
+        ['纪委书记', '', '行风建设与廉洁从业'],
+        ['工会主席', '', '职工福利与文体']
+      ],
+      sub: [
+        ['主任', '医务', '医疗质量与病历管理'],
+        ['主任', '重点临床科室', '专科诊疗与手术'],
+        ['主任', '护理部', '护理质量与排班'],
+        ['主任', '公共卫生', '疾控、妇幼与应急']
+      ]
+    },
+    teacher: {
+      lead: [
+        ['党委书记', '', '全面工作与党建'],
+        ['校长', '', '教学、科研与行政'],
+        ['党委副书记、副校长', '', '德育与学生管理'],
+        ['副厅长', '@parent', '对口业务指导与行业管理']
+      ],
+      peer: [
+        ['党委委员、副校长', '', '教学与教研'],
+        ['副校长', '', '后勤、基建与财务'],
+        ['纪委书记', '', '师德师风与纪检'],
+        ['院长', '二级学院', '学科建设与师资']
+      ],
+      sub: [
+        ['主任', '教务处', '排课、考务与学籍'],
+        ['主任', '教研室', '备课、听课与教改'],
+        ['主任', '学生工作处', '德育、资助与就业'],
+        ['馆长', '图书馆', '文献资源与阅读推广']
+      ]
+    },
+    business: {
+      lead: [
+        ['党委书记、董事长', '', '全面工作与重大决策'],
+        ['董事长', '', '董事会与战略投资'],
+        ['党委副书记、总经理', '', '经营目标与日常管理'],
+        ['副主任', '@parent', '国资监管与考核']
+      ],
+      peer: [
+        ['党委委员、副总经理', '', '工程建设与安全生产'],
+        ['副总经理', '', '投融资与项目拓展'],
+        ['财务总监', '', '资金、预算与审计'],
+        ['董事会秘书', '', '信息披露与治理']
+      ],
+      sub: [
+        ['经理', '工程管理部', '项目进度与质量安全'],
+        ['经理', '财务部', '核算、融资与税务'],
+        ['经理', '人力资源部', '招聘、薪酬与绩效'],
+        ['经理', '运营管理部', '主营业务与客户服务']
+      ]
+    },
+    party: {
+      lead: [
+        ['书记', '', '全面工作与班子建设'],
+        ['副书记', '', '日常协调与党建'],
+        ['常委、部门负责人', '', '分管领域与组织协调'],
+        ['副部长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['常委', '', '干部与组织工作'],
+        ['部门负责人', '', '宣传与意识形态'],
+        ['办公室主任', '办公室', '综合协调与文稿'],
+        ['巡察组组长', '巡察办', '巡察监督与整改']
+      ],
+      sub: [
+        ['科长', '干部科', '干部考察与任免'],
+        ['科长', '组织科', '基层组织与党员管理'],
+        ['主任', '研究室', '调研与文稿起草'],
+        ['科长', '综合科', '会务、机要与后勤']
+      ]
+    },
+    rd: {
+      lead: [
+        ['党组书记、主任', '', '全面工作与常委会'],
+        ['主任', '', '立法、监督与人事任免'],
+        ['党组副书记、副主任', '', '日常监督与代表工作'],
+        ['副秘书长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['党组成员、副主任', '', '法制审查与备案'],
+        ['副主任', '', '财经、城建与民生监督'],
+        ['秘书长', '', '机关运转与协调'],
+        ['专门委员会主任委员', '', '议案审议与专题调研']
+      ],
+      sub: [
+        ['主任', '办公厅', '文稿、会务与机要'],
+        ['主任', '法制工作', '法规审查与规范性文件备案'],
+        ['主任', '代表联络', '代表活动与建议办理'],
+        ['主任', '研究室', '课题调研与材料起草']
+      ]
+    },
+    qt: {
+      lead: [
+        ['党组书记、主席', '', '全面工作与班子建设'],
+        ['主席', '', '服务大局与维权服务'],
+        ['党组副书记、副主席', '', '基层组织与阵地建设'],
+        ['副主席', '@parent', '对口业务指导与系统考核']
+      ],
+      peer: [
+        ['党组成员、副主席', '', '劳动竞赛与职工服务'],
+        ['副主席', '', '基层组建与经费管理'],
+        ['常委、经审会主任', '', '经费审查与资产监管'],
+        ['办公室主任', '办公室', '综合协调与文稿']
+      ],
+      sub: [
+        ['部长', '组织基层', '基层工会组建与换届'],
+        ['部长', '权益保障', '维权、帮扶与普惠服务'],
+        ['主任', '职工服务中心', '困难帮扶与文体活动'],
+        ['部长', '宣传网络', '宣传教育与新媒体']
+      ]
+    },
+    xc: {
+      lead: [
+        ['党委书记、台长', '', '全面工作与舆论导向'],
+        ['台长', '', '采编经营与融合传播'],
+        ['党委副书记、副台长', '', '新闻宣传与安全播出'],
+        ['副总编', '@parent', '宣传口径与业务指导']
+      ],
+      peer: [
+        ['党委委员、副台长', '', '新闻采编与节目生产'],
+        ['总编辑', '', '内容审核与版面把关'],
+        ['纪委书记', '', '广告经营与行风建设'],
+        ['副总编辑', '', '专题栏目与新媒体']
+      ],
+      sub: [
+        ['主任', '新闻中心', '时政新闻与通联'],
+        ['总监', '频道', '节目编排与收视'],
+        ['主任', '融媒体', '两微一端与短视频'],
+        ['主任', '技术保障', '播控、发射与网络安全']
+      ]
+    },
+    kf: {
+      lead: [
+        ['党工委书记、管委会主任', '', '全面工作与重大项目'],
+        ['管委会主任', '', '招商、规划与建设'],
+        ['党工委副书记、副主任', '', '企业服务与营商环境'],
+        ['副主任', '@parent', '园区考核与政策指导']
+      ],
+      peer: [
+        ['党工委委员、副主任', '', '招商引资与项目落地'],
+        ['副主任', '', '规划建设与土地管理'],
+        ['纪工委书记', '', '工程招投标与廉政'],
+        ['管委会办公室主任', '办公室', '综合协调与文稿']
+      ],
+      sub: [
+        ['局长', '招商服务', '项目洽谈与签约落地'],
+        ['局长', '规划建设', '控规、报建与竣工验收'],
+        ['主任', '企业服务中心', '企业诉求与审批代办'],
+        ['科长', '财政审计', '园区预算与资金管理']
+      ]
+    },
+    gov: {
+      lead: [
+        ['党组书记、局长', '', '全面工作与重大事项'],
+        ['局长', '', '业务与项目审批'],
+        ['党组副书记、副局长', '', '日常业务与综合协调'],
+        ['副厅长', '@parent', '对口业务指导与督办']
+      ],
+      peer: [
+        ['党组成员、副局长', '', '业务领域与审批'],
+        ['副局长', '', '规划、项目与资金'],
+        ['办公室主任', '办公室', '综合协调与文稿'],
+        ['机关党委副书记', '机关党委', '党建、人事与纪检']
+      ],
+      sub: [
+        ['科长', '业务科', '具体业务办理与审核'],
+        ['科长', '综合科', '文秘、会务与档案'],
+        ['科长', '计划财务科', '预算、决算与采购'],
+        ['主任', '政务服务窗口', '受理、审批与便民服务']
+      ]
+    }
+  };
+
+  /* 生成一位同僚的具体岗位：由「单位系统 + 单位层级 + NPC 级别 + 上下级关系」
+     共同决定，级别不够绝不给「司令员 / 厅长 / 部长」这类高级首长头衔。 */
+  function postOf(g, cat, idx, kind, unit, lv) {
+    var u = unit || g.unit || '';
+    var sys = sysOf(u), tier = tierOf(u);
+    var cf = (CHIEF[sys.k] || CHIEF.gov)[tier] || CHIEF.gov.county;
+    var cap = TIER_CAP[tier] == null ? 4 : TIER_CAP[tier];
+    var effG = Math.min(gradeOf(lv == null ? g.lv : lv), cap);
+
+    /* 该级别能担任的最高角色 */
+    var maxRole = effG >= cf.minHead ? 'head' :
+      effG >= cf.minDep ? 'dep' :
+      effG >= 2 ? 'sec' : effG >= 1 ? 'secDep' : 'staff';
+    var ceiling = ROLE_ORDER.indexOf(maxRole);
+
+    /* 上级比同级高半档、下级再低半档；同组内用 idx 轮换避免全一样。
+       同时设下限：正股以上再怎么排也不能挂「科员/干事」，避免高级别 NPC
+       顶着办事员头衔。 */
+    var floor = effG >= 3 ? 2 : effG >= 1 ? 1 : 0;
+    var want = cat === 'lead' ? ceiling : cat === 'peer' ? ceiling - 1 : ceiling - 2;
+    var ri = Math.max(Math.min(floor, ceiling),
+      Math.min(ceiling, want - (Math.abs(idx | 0) % 2)));
+    var role = ROLE_ORDER[ri];
+
+    /* 第 4 位上级（且级别够）改派「上级主管机关」 */
+    var parent = '';
+    if (cat === 'lead' && Math.abs(idx | 0) % 4 === 3 && effG >= 4) {
+      parent = parentOrg(g, u, sys);
+      role = 'dep';
+    }
+
+    /* 内设机构与分管领域：沿用各系统岗位池的 sub 行 */
+    var pool = POOL[sys.k] || POOL.gov;
+    var secRows = pool.sub || POOL.gov.sub;
+    var row = secRows[Math.abs(idx | 0) % secRows.length];
+    var secRaw = String(row[1] || '');
+    var duty = String(row[2] || '');
+
+    var post = '', section = '';
+    if (role === 'head') {
+      post = cf.head;
+      if (cf.ph && Math.abs(idx | 0) % 3 === 0) post = cf.ph + post;
+      duty = '全面工作与' + (duty.split('、')[0] || '队伍建设');
+    } else if (role === 'dep') {
+      post = cf.dep;
+      if (cf.pd && Math.abs(idx | 0) % 3 === 1) post = cf.pd + post;
+    } else if (role === 'sec' || role === 'secDep') {
+      section = secRaw;
+      if (section === '@parent') section = '';
+      if (section) {
+        if (sys.k === 'police' && /^(刑侦|治安|交警|法制|特勤)$/.test(section)) {
+          section = section + scale(tier, ['大队', '支队', '总队', '局']);
+        } else if (sys.k === 'wj' && /^(执勤支队|特勤大队|基层中队)$/.test(section)) {
+          section = section.replace(/支队|大队|中队/,
+            scale(tier, ['中队', '大队', '支队', '总队']));
+        }
+      }
+      post = role === 'sec' ? cf.sec : cf.secDep;
+    } else {
+      post = cf.staff;
+    }
+
+    /* 人武部 / 人民武装部在乡镇县区叫「部长」，不叫「主任」 */
+    if (sys.k === 'military' && /人武部|人民武装部/.test(u) && tier !== 'city' && tier !== 'prov') {
+      if (role === 'head') post = post.replace('主任', '部长');
+      else if (role === 'dep') post = post.replace('副主任', '副部长');
+    }
+
+    var org = parent || (u + (section ? ' ' + section : ''));
+    var job = org + ' ' + post;
+    return {
+      post: post, section: section, parent: parent, org: org,
+      duty: duty, dress: sys.dress, sys: sys.k, sysName: sys.n,
+      grade: effG, role: role, job: job
+    };
+  }
+
+  /* 岗位显示：老存档、被季度演算改过岗位的人都兼容 */
+  function infoOf(n) {
+    var unit = n.unit || '';
+    var post = n.post || n.kind || '';
+    var known = n.staffV >= 2 && String(n.job || '').indexOf(post) >= 0;
+    var sys = sysOf(unit);
+    var section = known ? (n.section || '') : '';
+    var parent = known ? (n.parent || '') : '';
+    var org = parent || (unit + (section ? ' ' + section : ''));
+    var full = (org ? org + ' ' : '') + post;
+    /* 升迁换过单位的人，旧着装族作废，按现单位重算 */
+    var dress = (n.dress && n.sys === sys.k) ? n.dress : sys.dress;
+    return {
+      unit: unit, post: post, section: section, parent: parent, org: org,
+      full: full.trim(), duty: known ? (n.duty || '') : '',
+      dress: dress || sys.dress, sys: sys.k, sysName: sys.n,
+      job: (org ? org + ' ' : '') + post
+    };
+  }
+  function fullPostOf(n) { return infoOf(n).full; }
+  function dressOf(n) { return infoOf(n).dress; }
+  function jobOf(n) { return infoOf(n).job; }
+  function dutyOf(n) { return infoOf(n).duty; }
+  function sysNameOf(n) { return infoOf(n).sysName; }
+
+  /* 老存档懒升级：v2 及更早的岗位没按级别分级（会出现 5 级司令员），
+     统一重算为 v3，写回存档一次即可。 */
+  function upgradeAll(g) {
+    if (!g || !g.npcs || !g.npcs.length) return 0;
+    var cnt = { lead: 0, peer: 0, sub: 0 }, n = 0;
+    for (var i = 0; i < g.npcs.length; i++) {
+      var q = g.npcs[i];
+      if (!q || q.removed || !cnt.hasOwnProperty(q.cat)) continue;
+      var k = cnt[q.cat]++;
+      if (q.staffV === 3) continue;
+      var inf = postOf(g, q.cat, k, q.kind, q.unit || g.unit, q.lv || g.lv);
+      q.post = inf.post; q.section = inf.section; q.parent = inf.parent;
+      q.duty = inf.duty; q.dress = inf.dress; q.job = inf.job;
+      q.sys = inf.sys; q.sysName = inf.sysName;
+      q.grade = inf.grade; q.role = inf.role;
+      q.staffV = 3; n++;
+      /* 头像目录当初就是按单位名选的，这里不重算，避免整页换脸 */
+    }
+    return n;
+  }
+
+  /* NPC 自己升、降、平调之后，岗位要按新级别重新配，不能留着旧头衔 */
+  function refresh(g, n) {
+    if (!g || !n || n.removed) return;
+    if (n.cat !== 'lead' && n.cat !== 'peer' && n.cat !== 'sub') return;
+    var idx = 0;
+    for (var i = 0; i < g.npcs.length && g.npcs[i] !== n; i++) {
+      if (g.npcs[i] && g.npcs[i].cat === n.cat) idx++;
+    }
+    var inf = postOf(g, n.cat, idx, n.kind, n.unit || g.unit, n.lv || g.lv);
+    n.post = inf.post; n.section = inf.section; n.parent = inf.parent;
+    n.duty = inf.duty; n.dress = inf.dress; n.job = inf.job;
+    n.sys = inf.sys; n.sysName = inf.sysName;
+    n.grade = inf.grade; n.role = inf.role; n.staffV = 3;
+  }
+
+  global.Staff = {
+    SYS: SYS, sysOf: sysOf, tierOf: tierOf, postOf: postOf, infoOf: infoOf,
+    fullPostOf: fullPostOf, dressOf: dressOf, jobOf: jobOf,
+    dutyOf: dutyOf, sysNameOf: sysNameOf, upgradeAll: upgradeAll,
+    refresh: refresh, gradeOf: gradeOf, TIER_CAP: TIER_CAP, CHIEF: CHIEF
+  };
 })(window);
 
 /* ============================================================
@@ -10454,13 +11187,16 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
    * ============================================================ */
   function npcUnitTier(unit) {
     var u = String(unit || '');
-    /* 先看是不是中央机构（且不含地方字样） */
-    if (/中共中央|国务院|中央军委|全国人民代表大会|全国政协|云澜国|最高人民法院|最高人民检察院/.test(u)
-        && !/省|市|县|区|镇|乡|街道/.test(u)) return 'nat';
-    if (/省|自治区/.test(u)) return 'prov';
-    if (/市|州/.test(u)) return 'city';
-    if (/县|区|旗/.test(u)) return 'county';
-    if (/镇|乡|街道|村/.test(u)) return 'town';
+    /* 「工业园区 / 经济技术开发区 / 新区」里的「区」不是行政区划，先剔除，
+       否则「酒坊镇工业园区」会被误判成县级、「易水州经济技术开发区」误判成县级 */
+    var t = u.replace(/工业园区|经济技术开发区|高新技术产业开发区|经济开发区|高新技术产业园区|自贸片区|保税区|新区|园区|景区|社区|小区/g, '');
+    /* 中央机关：不带任何地方字样 */
+    var CENTRAL = /^(中共中央|国务院|中央军委|全国|中华全国|国家|中国|最高|云澜国|公安部|司法部|教育部|外交部|财政部|退役军人事务部|应急管理部|水利部|农业农村部|商务部|文化和旅游部|自然资源部|生态环境部|交通运输部|工业和信息化部|科学技术部|民政部|人力资源和社会保障部|住房和城乡建设部|中国人民银行|审计署|武警部队|中国人民解放军|新华社|人民日报社|中央广播电视总台)/;
+    if (CENTRAL.test(t) && !/省|市|县|区|镇|乡|街道/.test(t)) return 'nat';
+    if (/镇|乡|街道|村/.test(t)) return 'town';
+    if (/县|区|旗/.test(t)) return 'county';
+    if (/市|州/.test(t)) return 'city';
+    if (/省|自治区/.test(t)) return 'prov';
     return 'county';
   }
   /* 各层级岗位能对应的级别区间：省级岗位最高就是正部 16 级 */
@@ -11424,6 +12160,17 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     };
   }
 
+  /* 给新生成的同僚填现实岗位 + 着装族（staff.js 提供，老版本自动回退） */
+  function staffFill(g, cat, idx, npc) {
+    var St = global.Staff;
+    if (!St) return;
+    var inf = St.postOf(g, cat, idx, npc.kind, g.unit, npc.lv);
+    npc.post = inf.post; npc.section = inf.section; npc.parent = inf.parent;
+    npc.duty = inf.duty; npc.dress = inf.dress; npc.job = inf.job;
+    npc.sys = inf.sys; npc.sysName = inf.sysName;
+    npc.grade = inf.grade; npc.role = inf.role; npc.staffV = 3;
+  }
+
   /* 当前单位的同事与上下级：随单位/级别刷新 */
   function buildStaff(g) {
     var pl = placeOf(g);
@@ -11471,30 +12218,36 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
     var leadPosts = ['分管副职', '主要领导', '上级主管部门负责人', '组织部门负责人', '老领导'];
     var leadKinds = ['分管领导', '主要领导', '上级业务主管', '组织部门', '老领导'];
     for (i = hasLead; i < leadN; i++) {
-      g.npcs.push(makeNpc(g, 'lead', {
+      var npcL = makeNpc(g, 'lead', {
         kind: leadKinds[i % leadKinds.length], pos: g.pos.slice(),
         unit: g.unit, post: leadPosts[i % leadPosts.length],
         via: '本单位共事', metYear: g.year - rint(1, 8)
-      }));
+      });
+      staffFill(g, 'lead', i, npcL);
+      g.npcs.push(npcL);
     }
     var peerPosts = ['班子成员', '平级部门负责人', '办公室负责人', '业务科室同事'];
     var peerKinds = ['班子成员', '平级部门负责人', '办公室负责人', '老同事'];
     for (i = hasPeer; i < peerN; i++) {
-      g.npcs.push(makeNpc(g, 'peer', {
+      var npcP = makeNpc(g, 'peer', {
         kind: peerKinds[i % peerKinds.length], pos: g.pos.slice(),
         unit: g.unit, post: peerPosts[i % peerPosts.length],
         via: pick2(['本单位共事', '一次联席会议上', '同期入职认识']),
         metYear: g.year - rint(1, 10)
-      }));
+      });
+      staffFill(g, 'peer', i, npcP);
+      g.npcs.push(npcP);
     }
     var subPosts = ['分管科室负责人', '业务骨干', '秘书', '下属单位负责人'];
     var subKinds = ['分管科室负责人', '业务骨干', '秘书/联络员', '下属单位负责人'];
     for (i = hasSub; i < subN; i++) {
-      g.npcs.push(makeNpc(g, 'sub', {
+      var npcS = makeNpc(g, 'sub', {
         kind: subKinds[i % subKinds.length], pos: g.pos.slice(),
         unit: g.unit, post: subPosts[i % subPosts.length],
         via: '你分管后搭班子', metYear: g.year - rint(0, 5)
-      }));
+      });
+      staffFill(g, 'sub', i, npcS);
+      g.npcs.push(npcS);
     }
     /* 亲缘标记：只有与真亲缘同姓的才算需要回避 */
     if (global.Relation) global.Relation.markAvoid(g);
@@ -11925,7 +12678,9 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         if (T === '财经') g.stat.money++;
       }
     }
-    pushLog(it.t, o.msg + (txt ? '（' + txt + '）' : '') + (q ? ' 评分' + (q > 0 ? '+' : '') + q : ''), q >= 6 ? 'up' : (q < 0 ? 'bad' : ''));
+    /* 绝大多数事件选项没有 msg 字段，直接拼接会写出字面量 "undefined" */
+    var lead = (o.msg && String(o.msg).trim()) ? (String(o.msg).trim() + '　') : '';
+    pushLog(it.t, lead + (txt ? '（' + txt + '）' : '') + (q ? ' 评分' + (q > 0 ? '+' : '') + q : ''), q >= 6 ? 'up' : (q < 0 ? 'bad' : ''));
   }
 
   /* 履历标签 */
@@ -12913,6 +13668,12 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         n.postSince = stamp;
         n.career.unshift({ y: g.year, q: g.q, k: '平调', unit: n.unit, post: n.post, place: n.place, lv: n.lv, from: oldU + oldP });
         if (n.rel >= 70) pushLog('人事', n.name + '平调走了，去了' + n.unit + '任' + n.post + '。');
+      }
+      /* 本季度刚动过岗位：按新级别 + 新单位重配系统职务，避免留着越级头衔 */
+      if (global.Staff && n.career && n.career.length &&
+          n.career[0].y === g.year && n.career[0].q === g.q && !n.retired) {
+        global.Staff.refresh(g, n);
+        n.career[0].post = n.post; n.career[0].unit = n.unit;
       }
       /* 否则：原地不动 */
     }
@@ -14370,6 +15131,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         if (type === 'up') {
           n.lv = clamp(n.lv + 1, 1, 20);
           n.post = EN.nextPostName ? EN.nextPostName(G, n) : n.post;
+          if (global.Staff) global.Staff.refresh(G, n);
           n.rankName = (ENGINE.npcRankName ? ENGINE.npcRankName(n.lv, n.unit, n.post) : D.rankNameOf(G.track ? G.track.id : 'zw', n.lv).name);
           n.postSince = G.year * 10 + G.q;
           G.posts = Math.max(0, (G.posts || 0) - 1);
@@ -14394,6 +15156,7 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         } else if (type === 'move') {
           var oldPost = n.post || n.kind;
           n.post = EN.otherPostName ? EN.otherPostName(G, n) : (n.post || n.kind);
+          if (global.Staff) global.Staff.refresh(G, n);
           n.postSince = G.year * 10 + G.q;
           n.rel = clamp(n.rel + 6, 0, 100);
           G.coord = Math.round(clamp(G.coord + 3, 0, 100));
@@ -19973,11 +20736,18 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       h += '<div class="card"><div class="nm sect">' + gp.n +
         '<span class="rt">' + list.length + ' 人</span></div>';
       h += shown.map(function (n) {
-        var job = n.job || n.post || n.kind;
+        var hasUnit = !!(n.unit && String(n.unit).length);
+        var inf = (global.Staff && hasUnit) ? global.Staff.infoOf(n) : null;
+        var grp = netGroupOf(G, n);
+        var job = inf ? inf.full : (n.job || n.post || n.kind);
         var place = n.place || '';
         var last = (n.meets && n.meets.length) ? n.meets[0] : null;
+        var av = { size: 46, job: inf ? inf.job : job };
+        if (inf && inf.dress) av.dress = inf.dress;
+        /* 本单位同僚跟随本系统制服（政法线→警服，军政线→军装…） */
+        if (inf && (n.cat === 'lead' || n.cat === 'peer' || n.cat === 'sub') && G.track) av.track = G.track.id;
         return '<div class="relrow" onclick="APP.npcPage(' + n.id + ')">' +
-          global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 46, job: job }) +
+          global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), av) +
           '<div class="ri">' +
           '<div class="rh"><b>' + esc(n.name) + '</b>' +
           '<span class="rk">' + esc(n.kind) + '</span>' +
@@ -19987,13 +20757,18 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
           (n.retired ? '<span class="rk">已退休</span>' : '') +
           (movedTag(G, n) ? '<span class="rk ' + movedTag(G, n).cls + '">' + movedTag(G, n).t + '</span>' : '') +
           '<span class="rw ' + R.relationCls(n) + '">' + esc(R.relationWord(n)) + '</span></div>' +
-          '<div class="rm2">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁 · ' + esc(job) +
-          (place ? ' · ' + esc(place) : '') + '</div>' +
-          (netGroupOf(G, n) === 'kin'
-            ? '<div class="rm2">' + (n.retired ? '已退休' : esc(n.job || n.kind || '家人')) + '</div>'
-            : (netGroupOf(G, n) === 'out'
-              ? '<div class="rm2">第 ' + (n.lv || 1) + ' 级 · ' + esc(npcRankTxt(G, n)) + '（其他单位）</div>'
-              : '<div class="rm2">' + relPosTag(G, n) + '　' + esc(npcRankTxt(G, n)) + '</div>')) +
+          '<div class="rm2">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁' +
+          (n.edu ? ' · ' + esc(n.edu) : '') +
+          (inf ? ' · <span class="rtag">' + esc(inf.sysName) + '</span>' : '') + '</div>' +
+          '<div class="rjob">' + esc(job) + '</div>' +
+          '<div class="rsub">' +
+          (grp === 'kin'
+            ? (n.retired ? '已退休' : esc(n.job || n.kind || '家人'))
+            : (grp === 'out'
+              ? '第 ' + (n.lv || 1) + ' 级 · ' + esc(npcRankTxt(G, n)) + '（其他单位）'
+              : relPosTag(G, n) + ' · ' + esc(npcRankTxt(G, n)))) +
+          (place ? '　·　' + esc(place) : '') + '</div>' +
+          (inf && inf.duty ? '<div class="rduty">分管：' + esc(inf.duty) + '</div>' : '') +
           '<div class="rm3">信任 <b>' + Math.round(n.trust || 0) + '</b>' +
           '　人情 <b>' + (n.favor || 0) + '</b>' +
           (n.faction ? '　<span class="fc">班底</span>' : '') +
@@ -20024,18 +20799,24 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
       return h;
     }
     R.fillAxis(n);
-    var job = n.job || n.post || n.kind;
+    var hasUnit2 = !!(n.unit && String(n.unit).length);
+    var inf2 = (global.Staff && hasUnit2) ? global.Staff.infoOf(n) : null;
+    var job = inf2 ? inf2.full : (n.job || n.post || n.kind);
+    var av2 = { size: 70, job: inf2 ? inf2.job : job };
+    if (inf2 && inf2.dress) av2.dress = inf2.dress;
+    if (inf2 && (n.cat === 'lead' || n.cat === 'peer' || n.cat === 'sub') && G.track) av2.track = G.track.id;
     var isOfc = (n.cat === 'lead' || n.cat === 'peer' || n.cat === 'sub') ||
       ((n.cat === 'kin' || n.formerStaff) && n.inSystem && n.lv);
 
     h += '<div class="card npcpage">' +
       '<div class="perrow">' +
-      global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), { size: 70, job: job }) +
+      global.Avatar.html(n.gender, n.face || 0, Math.floor(n.age), av2) +
       '<div class="peri">' +
       '<div class="nh"><b>' + esc(n.name) + '</b><span class="tag">' + esc(n.kind) + '</span></div>' +
       '<div class="nmeta">' + n.gender + ' · ' + Math.floor(n.age) + ' 岁 · ' + esc(n.edu || '—') + ' · ' + esc(n.party || '—') + '</div>' +
-      (isOfc ? '<div class="nmeta">第 ' + n.lv + ' 级 · ' + esc(n.rankName) + '　' +
-        (n.unit ? '<b>' + esc(n.unit) + '</b>' : '') + esc(n.post || '') + '</div>'
+      (isOfc ? '<div class="nmeta">第 ' + n.lv + ' 级 · ' + esc(npcRankTxt(G, n)) +
+        (inf2 ? '　<b>' + esc(inf2.sysName) + '</b>' : '') + '</div>' +
+        '<div class="nmeta"><b>' + esc(job) + '</b></div>'
         : '<div class="nmeta">' + esc(job) + (n.income ? '　月收入约 ' + n.income + ' 元' : '') +
           (n.lv && n.inSystem ? '　第 ' + n.lv + ' 级' : '') + '</div>') +
       '<div class="nmeta">' + esc(n.place || '') + '　籍贯 ' + esc(n.home || '—') + '</div>' +
@@ -20085,8 +20866,15 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
         }).join('') + '</div>';
     }
     if (isOfc) {
-      h += '<div class="card"><div class="nm sect">现任岗位</div>' +
-        '<div class="ds"><b>' + esc(n.unit || '') + esc(n.post || '') + '</b>　第 ' + n.lv + ' 级 · ' + esc(npcRankTxt(G, n)) + '</div>' +
+      h += '<div class="card"><div class="nm sect">现任岗位' +
+        (inf2 ? '<span class="rt">' + esc(inf2.sysName) + '</span>' : '') + '</div>' +
+        '<div class="ds"><b>' + esc(job) + '</b></div>' +
+        '<div class="nmeta">职级：第 ' + n.lv + ' 级 · ' + esc(npcRankTxt(G, n)) +
+        '　|　任职地：' + esc(n.place || '—') + '</div>' +
+        (inf2 && inf2.duty ? '<div class="nmeta">分管：' + esc(inf2.duty) + '</div>' : '') +
+        (inf2 && inf2.parent ? '<div class="nmeta">上级主管机关：' + esc(inf2.parent) + '</div>' : '') +
+        '<div class="nmeta">共事单位：' + esc(n.unit || '—') +
+        '　|　政治面貌：' + esc(n.party || '—') + '</div>' +
         '<div class="hint">现任岗位已 ' + tenureTxt(G, n) + '，预计 ' + retireAgeOf(n) + ' 岁退休。' +
         '每季度他都可能升、降、平调，也可能原地不动。</div></div>';
     }
@@ -20583,6 +21371,9 @@ boost: { score: 0, he: 0.5, desc: '晋升无加成，健康衰减减缓 0.5/季'
 
   global.UI = {
     render: function () {
+      /* 老存档里的同僚只有「分管副职 / 业务骨干」这类泛称，
+         在这里一次性补成现实具体岗位，写回存档，之后不再重复。 */
+      if (global.Staff && S.g) { try { global.Staff.upgradeAll(S.g); } catch (e) {} }
       /* 重绘前把输入框里的值同步进状态，避免被覆盖丢失 */
       if (S.screen === 'create' && S.c) {
         var _n = document.getElementById('inName');
